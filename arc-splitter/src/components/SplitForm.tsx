@@ -164,6 +164,12 @@ export function SplitForm() {
   );
   const tokenBalance = balanceRaw ? BigInt(balanceRaw) : undefined;
 
+  // USDC balance (always fetched for the Unified Balance card)
+  const { data: usdcBalanceRaw } = useWalletBalance(
+    USDC_ADDRESS,
+    chainIdForBalance
+  );
+
   const { data: nativeBalance } = useBalance({
     address: address,
   });
@@ -505,11 +511,19 @@ export function SplitForm() {
 
   // ---------- Compute balances ----------
   const totalNeeded = parseFloat(totalAmount || "0") || getTotalToSend();
+  
+  // USDC balance (for Unified Balance card)
+  const nativeUSDCBalance = usdcBalanceRaw ? parseFloat(formatUnits(BigInt(usdcBalanceRaw), USDC_DECIMALS)) : 0;
+  
+  // Selected token balance (for form)
   const nativeAvailable = tokenBalance ? parseFloat(formatUnits(tokenBalance, activeDecimals)) : 0;
+  
+  // Gateway balance (always USDC)
   const unifiedAvailable = gatewayBalances
-    .filter(b => b.domain !== 26)
     .reduce((sum, b) => sum + parseFloat(b.balance || "0"), 0);
-  const totalAvailable = nativeAvailable + unifiedAvailable;
+  
+  // Total USDC (wallet USDC + gateway USDC) - for Unified Balance card
+  const totalUSDC = nativeUSDCBalance + unifiedAvailable;
 
   const getNativeContribution = () => {
     if (fundingSource === "native") return Math.min(totalNeeded, nativeAvailable);
@@ -834,21 +848,21 @@ export function SplitForm() {
     }
   };
 
-  // Determine which recipients to display
   const displayFields = showAllRecipients ? fields : fields.slice(0, 10);
   const hiddenCount = fields.length - 10;
 
   return (
     <div className="space-y-6">
+      {/* Unified Balance Panel */}
       <div className="panel flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="terminal-label text-xs">UNIFIED BALANCE</div>
           <div className="text-3xl font-bold font-mono text-[#F2B134]">
-            ${(totalAvailable).toFixed(2)} USDC
+            ${(totalUSDC).toFixed(2)} USDC
           </div>
-          <div className="flex gap-4 text-sm text-[#9C917E] mt-1">
-            <span>wallet <span className="font-mono text-[#EDE3D0]">${nativeAvailable.toFixed(2)}</span></span>
-            <span>|</span>
+          <div className="flex flex-wrap gap-4 text-sm text-[#9C917E] mt-1">
+            <span>wallet <span className="font-mono text-[#EDE3D0]">${nativeUSDCBalance.toFixed(2)}</span></span>
+            <span className="text-[#6B5F4F]">|</span>
             <span>gateway <span className="font-mono text-[#EDE3D0]">${unifiedAvailable.toFixed(2)}</span></span>
           </div>
         </div>
@@ -877,7 +891,6 @@ export function SplitForm() {
             <span className="data-value font-mono">{address.slice(0, 6)}…{address.slice(-4)}</span>
             <span className="field-label">BALANCE</span>
             <span className="data-value font-mono">{nativeAvailable.toFixed(6)} {tokenSymbol}</span>
-            <span className="data-value font-mono">{nativeAvailable.toFixed(6)} USDC</span>
             {networkStatus && <span className="text-amber ml-auto text-xs">{networkStatus}</span>}
           </div>
         )}
@@ -892,6 +905,7 @@ export function SplitForm() {
                 setCustomTokenAddress("");
                 setTokenSymbol("???");
                 setTokenDecimals(18);
+                setFundingSource("native");
               } else {
                 setIsCustomToken(false);
                 setTokenSymbol("USDC");
@@ -967,20 +981,31 @@ export function SplitForm() {
         <div className="mb-4">
           <label className="field-label block mb-1">FUNDING</label>
           <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
-            {["native", "unified", "hybrid"].map((src) => (
-              <button
-                key={src}
-                type="button"
-                onClick={() => { setFundingSource(src as FundingSource); play("click"); }}
-                className={`flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
-                  fundingSource === src
-                    ? "bg-amber text-[#15100B]"
-                    : "text-[#9C917E] hover:text-[#EDE3D0]"
-                }`}
-              >
-                {src.toUpperCase()}
-              </button>
-            ))}
+            {["native", "unified", "hybrid"].map((src) => {
+              const isDisabled = isCustomToken && src !== "native";
+              return (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => {
+                    if (!isDisabled) {
+                      setFundingSource(src as FundingSource);
+                      play("click");
+                    }
+                  }}
+                  disabled={isDisabled}
+                  className={`flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
+                    fundingSource === src
+                      ? "bg-amber text-[#15100B]"
+                      : "text-[#9C917E] hover:text-[#EDE3D0]"
+                  } ${isDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  title={isDisabled ? "Coming soon – only native funding supported for custom tokens" : ""}
+                >
+                  {src.toUpperCase()}
+                  {isDisabled && " (coming soon)"}
+                </button>
+              );
+            })}
           </div>
           {totalNeeded > 0 && (
             <div className="mt-2 text-xs text-[#9C917E] space-y-1 font-mono">
@@ -994,7 +1019,7 @@ export function SplitForm() {
               </div>
               <div className="flex justify-between border-t border-[rgba(242,177,52,0.16)] pt-1">
                 <span>Available</span>
-                <span className="text-amber">{totalAvailable.toFixed(activeDecimals)} {tokenSymbol}</span>
+                <span className="text-amber">{ (nativeAvailable + unifiedAvailable).toFixed(activeDecimals)} {tokenSymbol}</span>
               </div>
               {!isFullyFunded && (
                 <div className="text-[#C4553D]">
@@ -1157,7 +1182,6 @@ export function SplitForm() {
               <p className="helper-text text-center py-4 text-xs">Add your first recipient, or import a CSV.</p>
             ) : (
               displayFields.map((field, index) => {
-                // We need the actual index for the form registration
                 const realIndex = fields.indexOf(field);
                 return (
                   <div key={field.id} className="flex gap-2 items-center text-xs py-1 border-b border-[rgba(242,177,52,0.16)]/50 last:border-0">
