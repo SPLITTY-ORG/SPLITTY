@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useAccount, useSwitchChain, useWriteContract, useReadContract, useSignTypedData } from "wagmi";
 import { formatUnits, erc20Abi, parseUnits } from "viem";
 import toast from "react-hot-toast";
+import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { useGatewayBalance, useWalletBalance, useInvalidateBalances } from "../hooks/useBalances";
 import { useSound } from "../hooks/useSound";
 import { useChainSwitch } from "../hooks/useChainSwitch";
 import { chainConfig, CHAIN_KEYS, GATEWAY_WALLET_ADDRESS } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
+import { ArrowDownToLine, ArrowRightLeft } from "lucide-react";
 
 const USDC_DECIMALS = 6;
 const GATEWAY_WALLET_ABI = [
@@ -76,15 +78,15 @@ export function GatewayDashboard() {
   const bridgeSwitch = useChainSwitch(bridgeSource);
 
   const handleDeposit = async () => {
-    if (!address) { toast.error("Connect wallet first"); return; }
+    if (!address) { toastError("Connect wallet first"); return; }
     const amt = parseFloat(depositAmount);
-    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
 
     setIsDepositing(true);
     const amountWei = parseUnits(depositAmount, USDC_DECIMALS);
     try {
       if (!allowanceRaw || allowanceRaw < amountWei) {
-        const approveToast = toast.loading(`Approving USDC on ${depositConfig.label}...`);
+        const approveToast = toastLoading(`Approving USDC on ${depositConfig.label}...`);
         await writeContractAsync({
           address: depositConfig.usdcAddress,
           abi: erc20Abi,
@@ -94,10 +96,10 @@ export function GatewayDashboard() {
         });
         await new Promise(r => setTimeout(r, 2000));
         await refetchAllowance();
-        toast.success("Approved", { id: approveToast });
+        toastSuccess("Approved");
       }
 
-      const depositToast = toast.loading(`Depositing into Gateway on ${depositConfig.label}...`);
+      const depositToast = toastLoading(`Depositing into Gateway on ${depositConfig.label}...`);
       const tx = await writeContractAsync({
         address: GATEWAY_WALLET_ADDRESS,
         abi: GATEWAY_WALLET_ABI,
@@ -105,10 +107,9 @@ export function GatewayDashboard() {
         args: [depositConfig.usdcAddress, amountWei],
         chainId: depositConfig.chainId,
       });
-      toast.success("Deposit submitted! Waiting for finality.", { id: depositToast });
+      toastSuccess("Deposit submitted! Waiting for finality.");
       play("click");
 
-      // Save history
       await supabase.from("transaction_history").insert({
         wallet_address: address,
         event_type: "gateway_deposit",
@@ -128,18 +129,18 @@ export function GatewayDashboard() {
         invalidateWallet(depositConfig.chainId, depositConfig.usdcAddress);
       }, 3000);
     } catch (err: any) {
-      toast.error(err.message || "Deposit failed");
+      toastError(err.message || "Deposit failed");
     } finally {
       setIsDepositing(false);
     }
   };
 
   const handleBridge = async () => {
-    if (!address) { toast.error("Connect wallet first"); return; }
+    if (!address) { toastError("Connect wallet first"); return; }
     const amt = parseFloat(bridgeAmount);
-    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
     if (sourceBalanceNum < amt) {
-      toast.error(`Insufficient Gateway balance on ${bridgeSourceConfig.label}`);
+      toastError(`Insufficient Gateway balance on ${bridgeSourceConfig.label}`);
       return;
     }
 
@@ -150,12 +151,11 @@ export function GatewayDashboard() {
         signTypedDataAsync,
         bridgeSource,
         amt,
-        (msg) => toast.loading(msg)
+        (msg) => toastLoading(msg)
       );
-      toast.success(`Bridge initiated! Transfer ID: ${transferId}`);
+      toastSuccess(`Bridge initiated! Transfer ID: ${transferId}`);
       play("click");
 
-      // Save history
       await supabase.from("transaction_history").insert({
         wallet_address: address,
         event_type: "bridge_to_arc",
@@ -172,15 +172,15 @@ export function GatewayDashboard() {
 
       const result = await pollTransferStatus(transferId, 180000);
       if (result.status === "finalized" || result.status === "confirmed") {
-        toast.success(`Bridge completed!`);
+        toastSuccess(`Bridge completed!`);
         invalidateGateway(bridgeSourceConfig.domainId);
         invalidateGateway(26);
         invalidateWallet(5042002, chainConfig.arc.usdcAddress);
       } else {
-        toast.warning("Bridge submitted but finality not yet confirmed.");
+        toastInfo("Bridge submitted but finality not yet confirmed.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Bridge failed");
+      toastError(err.message || "Bridge failed");
     } finally {
       setIsBridging(false);
     }
@@ -277,9 +277,14 @@ export function GatewayDashboard() {
             <button
               onClick={handleDeposit}
               disabled={depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address}
-              className={`btn-primary w-full ${(depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
+              className={`btn-primary w-full inline-flex items-center justify-center gap-1.5 ${(depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
             >
-              {isDepositing ? "Depositing…" : "Deposit to Gateway →"}
+              {isDepositing ? "Depositing…" : (
+                <>
+                  <ArrowDownToLine size={14} />
+                  Deposit to Gateway
+                </>
+              )}
             </button>
             <div className="text-xs text-[#9C917E] space-y-1">
               {depositBalanceRaw && (
@@ -350,9 +355,14 @@ export function GatewayDashboard() {
             <button
               onClick={handleBridge}
               disabled={bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address}
-              className={`btn-secondary w-full ${(bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
+              className={`btn-secondary w-full inline-flex items-center justify-center gap-1.5 ${(bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
             >
-              {isBridging ? "Bridging…" : "Bridge →"}
+              {isBridging ? "Bridging…" : (
+                <>
+                  <ArrowRightLeft size={14} />
+                  Bridge
+                </>
+              )}
             </button>
             <div className="helper-text text-xs">
               This will burn the entered amount from your Gateway balance on the selected chain, then mint it on Arc using Circle's Forwarding Service.

@@ -150,3 +150,8 @@
     @apply grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6;
   }
 }
+
+@keyframes splitty-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

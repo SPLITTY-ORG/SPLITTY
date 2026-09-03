@@ -12,6 +12,7 @@ import {
   useReadContract,
 } from "wagmi";
 import toast from "react-hot-toast";
+import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { FORWARDER_ADDRESS, forwarderAbi, buildTransferCalls } from "../utils/multicall";
 import { supabase } from "../lib/supabase";
 import { chainConfig } from "../config/gateway";
@@ -20,6 +21,17 @@ import { useSound } from "../hooks/useSound";
 import { useChainSwitch } from "../hooks/useChainSwitch";
 import { useWalletBalance, useInvalidateBalances, useGatewayBalance } from "../hooks/useBalances";
 import { getBestGatewaySource } from "../utils/gatewaySelection";
+import {
+  Trash2,
+  Plus,
+  RotateCcw,
+  ArrowRight,
+  CheckCircle,
+  Send,
+  Link,
+  ArrowDownToLine,
+  ArrowRightLeft,
+} from "lucide-react";
 
 type Recipient = {
   address: string;
@@ -164,7 +176,6 @@ export function SplitForm() {
   );
   const tokenBalance = balanceRaw ? BigInt(balanceRaw) : undefined;
 
-  // USDC balance (always fetched for the Unified Balance card)
   const { data: usdcBalanceRaw } = useWalletBalance(
     USDC_ADDRESS,
     chainIdForBalance
@@ -200,7 +211,7 @@ export function SplitForm() {
       .order("created_at", { ascending: false });
     if (error) {
       console.error(error);
-      toast.error("Failed to load saved lists.");
+      toastError("Failed to load saved lists.");
     } else {
       setSavedLists(data || []);
     }
@@ -215,19 +226,19 @@ export function SplitForm() {
     const list = savedLists.find(l => l.id === listId);
     if (!list) return;
     setValue("recipients", list.recipients);
-    toast.success(`Loaded "${list.list_name}"`);
+    toastSuccess(`Loaded "${list.list_name}"`);
     play("click");
   };
 
   const saveCurrentList = async () => {
     const listName = watch("listName").trim();
     if (!listName) {
-      toast.error("Please enter a name for the list");
+      toastError("Please enter a name for the list");
       return;
     }
     const currentRecipients = watch("recipients").filter(r => r.address.trim() && r.amount.trim());
     if (currentRecipients.length === 0) {
-      toast.error("No recipients to save");
+      toastError("No recipients to save");
       return;
     }
     setIsSavingList(true);
@@ -241,9 +252,9 @@ export function SplitForm() {
     setIsSavingList(false);
     if (error) {
       console.error(error);
-      toast.error("Failed to save list.");
+      toastError("Failed to save list.");
     } else {
-      toast.success(`List "${listName}" saved!`);
+      toastSuccess(`List "${listName}" saved!`);
       setValue("listName", "");
       fetchSavedLists();
       play("click");
@@ -257,9 +268,9 @@ export function SplitForm() {
       .eq("id", listId);
     if (error) {
       console.error(error);
-      toast.error("Failed to delete list.");
+      toastError("Failed to delete list.");
     } else {
-      toast.success("List deleted.");
+      toastSuccess("List deleted.");
       fetchSavedLists();
       play("click");
     }
@@ -325,9 +336,9 @@ export function SplitForm() {
 
           if (dbError) {
             console.error(dbError);
-            toast.error("Transaction succeeded, but failed to save history.");
+            toastError("Transaction succeeded, but failed to save history.");
           } else {
-            toast.success("History saved!");
+            toastSuccess("History saved!");
             play("success");
             invalidateWallet(chainId || 5042002, activeTokenAddress);
             if (activeTokenAddress === USDC_ADDRESS) {
@@ -336,7 +347,7 @@ export function SplitForm() {
           }
         } catch (err) {
           console.error(err);
-          toast.error("Error saving transaction history.");
+          toastError("Error saving transaction history.");
         } finally {
           setSavingHistory(false);
         }
@@ -461,12 +472,12 @@ export function SplitForm() {
         }
         setCsvError(null);
         setValue("recipients", newRecipients.map(r => ({ address: r.address, amount: r.amount })));
-        toast.success(`Imported ${newRecipients.length} recipients from CSV`);
+        toastSuccess(`Imported ${newRecipients.length} recipients from CSV`);
         play("click");
         setShowAllRecipients(false);
       } catch (err) {
         setCsvError("Failed to parse CSV. Make sure it has 'address,amount' columns.");
-        toast.error("CSV parsing failed");
+        toastError("CSV parsing failed");
       }
     };
     reader.readAsText(file);
@@ -474,7 +485,7 @@ export function SplitForm() {
 
   const handleBulkPaste = () => {
     if (!bulkInput.trim()) {
-      toast.error("Please paste some addresses and amounts");
+      toastError("Please paste some addresses and amounts");
       return;
     }
     const lines = bulkInput.split("\n").filter((line) => line.trim());
@@ -499,30 +510,22 @@ export function SplitForm() {
       newRecipients.push({ address: getAddress(addr), amount: amt });
     });
     if (errors.length > 0) {
-      toast.error(errors.join(" | "));
+      toastError(errors.join(" | "));
       return;
     }
     setValue("recipients", newRecipients);
     setBulkInput("");
-    toast.success(`Added ${newRecipients.length} recipients from paste`);
+    toastSuccess(`Added ${newRecipients.length} recipients from paste`);
     play("click");
     setShowAllRecipients(false);
   };
 
   // ---------- Compute balances ----------
   const totalNeeded = parseFloat(totalAmount || "0") || getTotalToSend();
-  
-  // USDC balance (for Unified Balance card)
   const nativeUSDCBalance = usdcBalanceRaw ? parseFloat(formatUnits(BigInt(usdcBalanceRaw), USDC_DECIMALS)) : 0;
-  
-  // Selected token balance (for form)
   const nativeAvailable = tokenBalance ? parseFloat(formatUnits(tokenBalance, activeDecimals)) : 0;
-  
-  // Gateway balance (always USDC)
   const unifiedAvailable = gatewayBalances
     .reduce((sum, b) => sum + parseFloat(b.balance || "0"), 0);
-  
-  // Total USDC (wallet USDC + gateway USDC) - for Unified Balance card
   const totalUSDC = nativeUSDCBalance + unifiedAvailable;
 
   const getNativeContribution = () => {
@@ -555,34 +558,34 @@ export function SplitForm() {
   // ---------- Bridge + Split ----------
   const bridgeAndSplit = async () => {
     if (isCustomToken) {
-      toast.error("Bridge is only supported for USDC. Please use USDC for bridging.");
+      toastError("Bridge is only supported for USDC. Please use USDC for bridging.");
       return;
     }
     if (!address) {
-      toast.error("Wallet not connected");
+      toastError("Wallet not connected");
       return;
     }
     const amountToBridge = unifiedContribution;
     if (amountToBridge <= 0) {
-      toast.error("No unified contribution needed");
+      toastError("No unified contribution needed");
       return;
     }
 
     const bestSource = getBestGatewaySource(amountToBridge, gatewayBalances);
     if (!bestSource) {
-      toast.error("No Gateway balance available on any supported chain.");
+      toastError("No Gateway balance available on any supported chain.");
       return;
     }
 
     if (bestSource.balance < amountToBridge) {
-      toast.error(`Insufficient balance on ${bestSource.label} (need ${amountToBridge.toFixed(6)}, have ${bestSource.balance.toFixed(6)})`);
+      toastError(`Insufficient balance on ${bestSource.label} (need ${amountToBridge.toFixed(6)}, have ${bestSource.balance.toFixed(6)})`);
       return;
     }
 
     setGatewaySourceChain(bestSource.key as keyof typeof chainConfig);
 
     if (bridgeSwitch.isMismatched) {
-      toast.info(`Please switch your wallet to ${bestSource.label} to continue.`);
+      toastInfo(`Please switch your wallet to ${bestSource.label} to continue.`);
       return;
     }
 
@@ -608,7 +611,7 @@ export function SplitForm() {
 
       const result = await pollTransferStatus(transferId, 180000);
       if (result.status === "finalized" || result.status === "confirmed") {
-        toast.success(`Bridge completed! Transaction: ${result.transactionHash || transferId}`);
+        toastSuccess(`Bridge completed! Transaction: ${result.transactionHash || transferId}`);
         setNetworkStatus(`Bridge complete!`);
         setBridgeTxHash(result.transactionHash || transferId);
 
@@ -618,14 +621,14 @@ export function SplitForm() {
 
         if (chainId !== 5042002) {
           setNetworkStatus(`Switching back to Arc...`);
-          const switchToast = toast.loading(`Switching back to Arc...`);
+          const switchToast = toastLoading(`Switching back to Arc...`);
           try {
             await switchChainAsync({ chainId: 5042002 });
-            toast.success(`Switched back to Arc`, { id: switchToast });
+            toastSuccess(`Switched back to Arc`, { id: switchToast });
             setNetworkStatus(`Connected to Arc`);
             await new Promise(r => setTimeout(r, 2000));
           } catch (err) {
-            toast.error(`Please switch back to Arc manually`, { id: switchToast, duration: 10000 });
+            toastError(`Please switch back to Arc manually`, { id: switchToast, duration: 10000 });
             setNetworkStatus(`⚠️ Please switch to Arc manually`);
           }
         }
@@ -638,7 +641,7 @@ export function SplitForm() {
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Bridge failed");
+      toastError(err.message || "Bridge failed");
       setNetworkStatus(`❌ ${err.message}`);
       setStatus("failed");
       setStatusMessage(`Bridge failed: ${err.message}`);
@@ -652,7 +655,7 @@ export function SplitForm() {
     if (!pendingData || !address) return;
     const valid = pendingData.recipients.filter(r => r.address.trim() && r.amount.trim());
     if (valid.length === 0) {
-      toast.error("No valid recipients");
+      toastError("No valid recipients");
       return;
     }
     const totalAmountWei = valid.reduce((sum, r) => {
@@ -685,7 +688,7 @@ export function SplitForm() {
       setStatus("failed");
       setStatusMessage(`Failed: ${err.message}`);
       play("error");
-      toast.error(err.message);
+      toastError(err.message);
       setIsSubmitting(false);
     }
   };
@@ -694,7 +697,7 @@ export function SplitForm() {
   const onReview = (data: FormValues) => {
     const valid = data.recipients.filter(r => r.address.trim() && r.amount.trim());
     if (valid.length === 0) {
-      toast.error("Please add at least one valid recipient");
+      toastError("Please add at least one valid recipient");
       return;
     }
     const totalAmountWei = valid.reduce((sum, r) => {
@@ -702,21 +705,21 @@ export function SplitForm() {
       return sum + parsed;
     }, 0n);
     if (totalAmountWei === 0n) {
-      toast.error("Total amount must be greater than 0");
+      toastError("Total amount must be greater than 0");
       return;
     }
 
     const totalNeededNum = parseFloat(formatUnits(totalAmountWei, activeDecimals));
     if (fundingSource === "native" && nativeAvailable < totalNeededNum) {
-      toast.error(`Insufficient native balance (need ${totalNeededNum} ${tokenSymbol})`);
+      toastError(`Insufficient native balance (need ${totalNeededNum} ${tokenSymbol})`);
       return;
     }
     if (fundingSource === "unified" && unifiedAvailable < totalNeededNum) {
-      toast.error(`Insufficient unified balance (need ${totalNeededNum} ${tokenSymbol})`);
+      toastError(`Insufficient unified balance (need ${totalNeededNum} ${tokenSymbol})`);
       return;
     }
     if (fundingSource === "hybrid" && (nativeContribution + unifiedContribution) < totalNeededNum) {
-      toast.error(`Insufficient total available (need ${totalNeededNum} ${tokenSymbol})`);
+      toastError(`Insufficient total available (need ${totalNeededNum} ${tokenSymbol})`);
       return;
     }
 
@@ -729,7 +732,7 @@ export function SplitForm() {
     if (!pendingData || !address) return;
     const valid = pendingData.recipients.filter(r => r.address.trim() && r.amount.trim());
     if (valid.length === 0) {
-      toast.error("No valid recipients");
+      toastError("No valid recipients");
       return;
     }
     const totalAmountWei = valid.reduce((sum, r) => {
@@ -786,7 +789,7 @@ export function SplitForm() {
       setStatusMessage(`Failed: ${err.message || "Unknown error"}`);
       setTxError(err.message || "Transaction failed");
       play("error");
-      toast.error(err?.message || "Transaction failed");
+      toastError(err?.message || "Transaction failed");
       setIsSubmitting(false);
     }
   };
@@ -808,7 +811,7 @@ export function SplitForm() {
       setStatusMessage(`Failed: ${error.message || "Unknown error"}`);
       setTxError(error.message || "Transaction failed");
       play("error");
-      toast.error(error?.message || "Transaction failed");
+      toastError(error?.message || "Transaction failed");
       setIsSubmitting(false);
     }
   }, [error]);
@@ -858,7 +861,7 @@ export function SplitForm() {
         <div>
           <div className="terminal-label text-xs">UNIFIED BALANCE</div>
           <div className="text-3xl font-bold font-mono text-[#F2B134]">
-            ${(totalUSDC).toFixed(2)} USDC
+            ${totalUSDC.toFixed(2)} USDC
           </div>
           <div className="flex flex-wrap gap-4 text-sm text-[#9C917E] mt-1">
             <span>wallet <span className="font-mono text-[#EDE3D0]">${nativeUSDCBalance.toFixed(2)}</span></span>
@@ -1019,7 +1022,7 @@ export function SplitForm() {
               </div>
               <div className="flex justify-between border-t border-[rgba(242,177,52,0.16)] pt-1">
                 <span>Available</span>
-                <span className="text-amber">{ (nativeAvailable + unifiedAvailable).toFixed(activeDecimals)} {tokenSymbol}</span>
+                <span className="text-amber">{(nativeAvailable + unifiedAvailable).toFixed(activeDecimals)} {tokenSymbol}</span>
               </div>
               {!isFullyFunded && (
                 <div className="text-[#C4553D]">
@@ -1054,10 +1057,11 @@ export function SplitForm() {
             )}
             <button
               onClick={() => {
-                toast.info("Deposit to Unified Balance");
+                toastInfo("Deposit to Unified Balance");
               }}
-              className="btn-primary text-sm py-1 px-3 mt-2"
+              className="btn-primary text-sm py-1 px-3 mt-2 inline-flex items-center gap-1.5"
             >
+              <ArrowDownToLine size={14} />
               Deposit to Unified Balance
             </button>
           </div>
@@ -1106,9 +1110,10 @@ export function SplitForm() {
             <button
               type="button"
               onClick={handleBulkPaste}
-              className="mt-1 btn-secondary text-xs py-1 px-3"
+              className="mt-1 btn-secondary text-xs py-1 px-3 inline-flex items-center gap-1.5"
             >
-              + Add from Paste
+              <Plus size={14} />
+              Add from Paste
             </button>
           </div>
         </div>
@@ -1134,8 +1139,9 @@ export function SplitForm() {
                   if (confirm("Delete this list?")) deleteList(select.value);
                 }
               }}
-              className="btn-danger text-xs py-1 px-3"
+              className="btn-danger text-xs py-1 px-3 inline-flex items-center gap-1.5"
             >
+              <Trash2 size={14} />
               Delete
             </button>
           )}
@@ -1164,16 +1170,18 @@ export function SplitForm() {
               <button
                 type="button"
                 onClick={clearAll}
-                className="btn-danger text-xs py-1 px-2"
+                className="btn-danger text-xs py-1 px-2 inline-flex items-center gap-1.5"
               >
+                <Trash2 size={14} />
                 Clear All
               </button>
               <button
                 type="button"
                 onClick={() => { append({ address: "", amount: "" }); play("click"); }}
-                className="text-xs bg-amber hover:bg-[#D99A2A] text-[#15100B] font-bold px-3 py-1 rounded transition"
+                className="text-xs bg-amber hover:bg-[#D99A2A] text-[#15100B] font-bold px-3 py-1 rounded transition inline-flex items-center gap-1.5"
               >
-                + Add
+                <Plus size={14} />
+                Add
               </button>
             </div>
           </div>
@@ -1294,17 +1302,31 @@ export function SplitForm() {
               setShowReview(false);
               setShowAllRecipients(false);
             }}
-            className="btn-secondary flex-1"
+            className="btn-secondary flex-1 inline-flex items-center justify-center gap-1.5"
           >
+            <RotateCcw size={14} />
             Reset
           </button>
           <button
             type="submit"
             onClick={handleSubmit(onReview)}
             disabled={isSubmitDisabled}
-            className={`btn-primary flex-1 ${isSubmitDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
+            className={`btn-primary flex-1 inline-flex items-center justify-center gap-1.5 ${isSubmitDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
           >
-            {getButtonLabel()}
+            {getButtonLabel() === "Review Split →" ? (
+              <>
+                Review Split <ArrowRight size={14} className="inline-block ml-1" />
+              </>
+            ) : getButtonLabel() === "Switch to Arc" || getButtonLabel() === "Processing…" ? (
+              getButtonLabel()
+            ) : status === "confirming" ? (
+              <>
+                <Send size={14} className="inline-block mr-1.5" />
+                {getButtonLabel()}
+              </>
+            ) : (
+              getButtonLabel()
+            )}
           </button>
         </div>
         {arcSwitch.isMismatched && (
@@ -1325,7 +1347,7 @@ export function SplitForm() {
       {showReview && pendingData && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <h3 className="text-xl font-bold font-sans text-amber mb-4">📋 Review Split</h3>
+            <h3 className="text-xl font-bold font-sans text-amber mb-4">Review Split</h3>
             <div className="space-y-4">
               <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-4">
                 <div className="flex justify-between text-sm">
@@ -1381,9 +1403,14 @@ export function SplitForm() {
                 <button
                   onClick={executeSplit}
                   disabled={isSubmitDisabled}
-                  className={`flex-1 btn-primary ${isSubmitDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  className={`flex-1 btn-primary inline-flex items-center justify-center gap-1.5 ${isSubmitDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
-                  {arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : "✅ Confirm & Send"}
+                  {arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : (
+                    <>
+                      <CheckCircle size={14} className="inline-block mr-1.5" />
+                      Confirm & Send
+                    </>
+                  )}
                 </button>
               </div>
             </div>
