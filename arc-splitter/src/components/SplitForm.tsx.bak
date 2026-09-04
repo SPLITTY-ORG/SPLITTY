@@ -131,7 +131,6 @@ export function SplitForm() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const savedListSelectRef = useRef<HTMLSelectElement>(null);
-  const historySavedRef = useRef(false); // prevents duplicate history saves
 
   const { address, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
@@ -228,11 +227,11 @@ export function SplitForm() {
     const list = savedLists.find(l => l.id === listId);
     if (!list) return;
     const hasUnsavedWork = recipients.some(r => r.address.trim() || r.amount.trim());
-    if (hasUnsavedWork && !confirm(`Load "${list.list_name}"? This will replace the recipients currently in the form.`)) {
+    if (hasUnsavedWork && !confirm(`Load ""? This will replace the recipients currently in the form.`)) {
       return;
     }
     setValue("recipients", list.recipients);
-    toastSuccess(`Loaded "${list.list_name}"`);
+    toastSuccess(`Loaded ""`);
     play("click");
   };
 
@@ -248,23 +247,13 @@ export function SplitForm() {
       return;
     }
     setIsSavingList(true);
-    const existing = savedLists.find(l => l.list_name === listName);
-    if (existing && !confirm(`A list named "${listName}" already exists. Overwrite it?`)) {
-      setIsSavingList(false);
-      return;
-    }
-    const { error } = existing
-      ? await supabase
-          .from("saved_recipient_lists")
-          .update({ recipients: currentRecipients })
-          .eq("id", existing.id)
-      : await supabase
-          .from("saved_recipient_lists")
-          .insert({
-            wallet_address: address,
-            list_name: listName,
-            recipients: currentRecipients,
-          });
+    const { error } = await supabase
+      .from("saved_recipient_lists")
+      .insert({
+        wallet_address: address,
+        list_name: listName,
+        recipients: currentRecipients,
+      });
     setIsSavingList(false);
     if (error) {
       console.error(error);
@@ -292,29 +281,9 @@ export function SplitForm() {
     }
   };
 
-  // ---------- Reset after transaction ----------
-  const resetAfterTransaction = () => {
-    setPendingData(null);
-    setTxHash(null);
-    setStatus("idle");
-    setStatusMessage("");
-    setTxLabel("");
-    setTxError(null);
-    setBridgeTxHash(null);
-    setIsSubmitting(false);
-    setShowReview(false);
-    setShowAllRecipients(false);
-    setValue("recipients", [{ address: "", amount: "" }]);
-    setValue("totalAmount", "");
-    if (savedListSelectRef.current) {
-      savedListSelectRef.current.value = "";
-    }
-  };
-
   // ---------- History ----------
   useEffect(() => {
-    if (isSuccess && receipt && pendingData && address && !historySavedRef.current) {
-      historySavedRef.current = true;
+    if (isSuccess && receipt && pendingData && address) {
       const saveHistory = async () => {
         setSavingHistory(true);
         try {
@@ -380,8 +349,6 @@ export function SplitForm() {
             if (activeTokenAddress === USDC_ADDRESS) {
               invalidateGateway(26);
             }
-            // Reset form after a short delay to let the user see the confirmation
-            setTimeout(resetAfterTransaction, 2000);
           }
         } catch (err) {
           console.error(err);
@@ -439,22 +406,6 @@ export function SplitForm() {
   const totalAmount = watch("totalAmount");
   const splitMode = watch("splitMode");
 
-  // ---------- Equal mode distribution effect ----------
-  useEffect(() => {
-    if (!isEqualMode) return;
-    const total = parseFloat(totalAmount);
-    const filledIndexes = recipients
-      .map((r, i) => ({ addr: r.address.trim(), i }))
-      .filter(x => x.addr);
-    if (!total || filledIndexes.length === 0) return;
-    const each = (total / filledIndexes.length).toFixed(activeDecimals);
-    filledIndexes.forEach(({ i }) => {
-      const current = watch(`recipients.${i}.amount`);
-      if (current !== each) setValue(`recipients.${i}.amount`, each);
-    });
-  }, [isEqualMode, totalAmount, recipients.map(r => r.address).join(","), activeDecimals, watch, setValue]);
-
-  // ---------- Computed helpers ----------
   const validRecipientsCount = recipients.filter(r => r.address.trim() && r.amount.trim()).length;
 
   const getTotalToSend = () => {
@@ -609,33 +560,37 @@ export function SplitForm() {
 
   const needsBridge = (fundingSource === "unified" || fundingSource === "hybrid") && unifiedContribution > 0;
 
-  // ---------- Bridge + Split (with bail helper) ----------
+  // ---------- Bridge + Split ----------
   const bridgeAndSplit = async () => {
-    const bail = (msg: string) => {
-      toastError(msg);
-      setStatus("idle");
-      setStatusMessage("");
-      setIsSubmitting(false);
-    };
-    if (isCustomToken) return bail("Bridge is only supported for USDC. Please use USDC for bridging.");
-    if (!address) return bail("Wallet not connected");
+    if (isCustomToken) {
+      toastError("Bridge is only supported for USDC. Please use USDC for bridging.");
+      return;
+    }
+    if (!address) {
+      toastError("Wallet not connected");
+      return;
+    }
     const amountToBridge = unifiedContribution;
-    if (amountToBridge <= 0) return bail("No unified contribution needed");
+    if (amountToBridge <= 0) {
+      toastError("No unified contribution needed");
+      return;
+    }
 
     const bestSource = getBestGatewaySource(amountToBridge, gatewayBalances);
-    if (!bestSource) return bail("No Gateway balance available on any supported chain.");
+    if (!bestSource) {
+      toastError("No Gateway balance available on any supported chain.");
+      return;
+    }
 
     if (bestSource.balance < amountToBridge) {
-      return bail(`Insufficient balance on ${bestSource.label} (need ${amountToBridge.toFixed(6)}, have ${bestSource.balance.toFixed(6)})`);
+      toastError(`Insufficient balance on ${bestSource.label} (need ${amountToBridge.toFixed(6)}, have ${bestSource.balance.toFixed(6)})`);
+      return;
     }
 
     setGatewaySourceChain(bestSource.key as keyof typeof chainConfig);
 
     if (bridgeSwitch.isMismatched) {
-      toastInfo(`Please switch your wallet to ${bestSource.label} to continue. Then click Review Split again.`);
-      setStatus("idle");
-      setStatusMessage("");
-      setIsSubmitting(false);
+      toastInfo(`Please switch your wallet to ${bestSource.label} to continue.`);
       return;
     }
 
@@ -750,21 +705,6 @@ export function SplitForm() {
       toastError("Please add at least one valid recipient");
       return;
     }
-
-    // Check for duplicate addresses
-    const seen = new Set<string>();
-    const duplicates = valid.filter(r => {
-      const addr = getAddress(r.address);
-      if (seen.has(addr)) return true;
-      seen.add(addr);
-      return false;
-    });
-    if (duplicates.length > 0) {
-      const duplicateList = duplicates.map(r => r.address.slice(0, 6) + "…" + r.address.slice(-4)).join(", ");
-      toastError(`Duplicate address(es) found: ${duplicateList}. Please remove duplicates.`);
-      return;
-    }
-
     const totalAmountWei = valid.reduce((sum, r) => {
       const parsed = parseUnits(r.amount, activeDecimals);
       return sum + parsed;
@@ -1045,25 +985,6 @@ export function SplitForm() {
             </button>
           </div>
         </div>
-
-        {isEqualMode && (
-          <div className="mb-4">
-            <label className="field-label block mb-1">TOTAL AMOUNT TO SPLIT</label>
-            <input
-              type="number"
-              step="0.000001"
-              min="0"
-              placeholder="0.00"
-              {...register("totalAmount")}
-              className="input text-sm font-mono"
-            />
-            {totalAmount && validRecipientsCount > 0 && (
-              <p className="helper-text mt-1">
-                Each recipient gets: <span className="data-value font-bold text-amber">{getEqualAmount()}</span> {tokenSymbol}
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="mb-4">
           <label className="field-label block mb-1">FUNDING</label>
@@ -1386,7 +1307,6 @@ export function SplitForm() {
               setIsSubmitting(false);
               setShowReview(false);
               setShowAllRecipients(false);
-              savedListSelectRef.current && (savedListSelectRef.current.value = "");
             }}
             className="btn-secondary flex-1 inline-flex items-center justify-center gap-1.5"
           >

@@ -230,12 +230,12 @@ export function GatewayDashboard() {
         <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-4">
           <h4 className="field-label text-sm mb-3">Deposit USDC to Gateway</h4>
           {depositSwitch.isMismatched && (
-            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2 mb-3 flex flex-wrap items-center gap-2">
-              <span className="text-[#C4553D] text-sm flex-1 min-w-[140px]">Switch to {depositSwitch.targetChain.label} to continue.</span>
+            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2 mb-3 flex items-center justify-between">
+              <span className="text-[#C4553D] text-sm">Switch to {depositSwitch.targetChain.label} to continue.</span>
               <button
                 onClick={depositSwitch.switchChain}
                 disabled={depositSwitch.isSwitching}
-                className="btn-primary text-sm py-1 px-3 shrink-0"
+                className="btn-primary text-sm py-1 px-3"
               >
                 {depositSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
               </button>
@@ -301,12 +301,12 @@ export function GatewayDashboard() {
         <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-4">
           <h4 className="field-label text-sm mb-3">Bridge to Arc</h4>
           {bridgeSwitch.isMismatched && (
-            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2 mb-3 flex flex-wrap items-center gap-2">
-              <span className="text-[#C4553D] text-sm flex-1 min-w-[140px]">Switch to {bridgeSwitch.targetChain.label} to continue.</span>
+            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2 mb-3 flex items-center justify-between">
+              <span className="text-[#C4553D] text-sm">Switch to {bridgeSwitch.targetChain.label} to continue.</span>
               <button
                 onClick={bridgeSwitch.switchChain}
                 disabled={bridgeSwitch.isSwitching}
-                className="btn-primary text-sm py-1 px-3 shrink-0"
+                className="btn-primary text-sm py-1 px-3"
               >
                 {bridgeSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
               </button>
