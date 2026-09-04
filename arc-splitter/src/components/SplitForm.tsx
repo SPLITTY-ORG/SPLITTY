@@ -131,7 +131,7 @@ export function SplitForm() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const savedListSelectRef = useRef<HTMLSelectElement>(null);
-  const historySavedRef = useRef(false); // prevents duplicate history saves
+  const historySavedRef = useRef(false);
 
   const { address, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
@@ -380,7 +380,6 @@ export function SplitForm() {
             if (activeTokenAddress === USDC_ADDRESS) {
               invalidateGateway(26);
             }
-            // Reset form after a short delay to let the user see the confirmation
             setTimeout(resetAfterTransaction, 2000);
           }
         } catch (err) {
@@ -609,7 +608,7 @@ export function SplitForm() {
 
   const needsBridge = (fundingSource === "unified" || fundingSource === "hybrid") && unifiedContribution > 0;
 
-  // ---------- Bridge + Split (with bail helper) ----------
+  // ---------- Bridge + Split ----------
   const bridgeAndSplit = async () => {
     const bail = (msg: string) => {
       toastError(msg);
@@ -964,7 +963,7 @@ export function SplitForm() {
         )}
 
         <div className="mb-4">
-          <label className="field-label block mb-1">ASSET</label>
+          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ What asset are you splitting?</label>
           <select
             value={isCustomToken ? "custom" : USDC_ADDRESS}
             onChange={(e) => {
@@ -1019,7 +1018,7 @@ export function SplitForm() {
         </div>
 
         <div className="mb-4">
-          <label className="field-label block mb-1">SPLIT MODE</label>
+          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ How do you want to split?</label>
           <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             <button
               type="button"
@@ -1048,7 +1047,7 @@ export function SplitForm() {
 
         {isEqualMode && (
           <div className="mb-4">
-            <label className="field-label block mb-1">TOTAL AMOUNT TO SPLIT</label>
+            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ How much total?</label>
             <input
               type="number"
               step="0.000001"
@@ -1066,7 +1065,7 @@ export function SplitForm() {
         )}
 
         <div className="mb-4">
-          <label className="field-label block mb-1">FUNDING</label>
+          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ Where should the funds come from?</label>
           <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             {["native", "unified", "hybrid"].map((src) => {
               const isDisabled = isCustomToken && src !== "native";
@@ -1115,6 +1114,30 @@ export function SplitForm() {
               )}
             </div>
           )}
+
+          {/* ----- GATEWAY BALANCE BREAKDOWN (when UNIFIED or HYBRID) ----- */}
+          {(fundingSource === "unified" || fundingSource === "hybrid") && (
+            <div className="mt-2 pt-2 border-t border-[rgba(242,177,52,0.16)]">
+              <div className="text-xs text-[#9C917E]">Gateway balances:</div>
+              {gatewayBalances.filter(b => b.domain !== 26).map((b) => {
+                let label = `Chain ${b.domain}`;
+                if (chainConfig) {
+                  const entry = Object.values(chainConfig).find(c => c.domainId === b.domain);
+                  if (entry) label = entry.label;
+                }
+                return (
+                  <div key={b.domain} className="flex justify-between text-xs font-mono">
+                    <span>{label}</span>
+                    <span className="text-[#EDE3D0]">{parseFloat(b.balance || "0").toFixed(6)} USDC</span>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between text-xs font-mono border-t border-[rgba(242,177,52,0.16)] pt-1 mt-1">
+                <span className="text-[#9C917E]">Total Gateway</span>
+                <span className="text-[#F2B134]">{unifiedAvailable.toFixed(6)} USDC</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {!isFullyFunded && !isBridging && (
@@ -1160,7 +1183,7 @@ export function SplitForm() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="field-label block mb-1">IMPORT CSV</label>
+            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">📄 Import CSV?</label>
             <div
               className={`border-2 border-dashed rounded p-3 text-center transition ${
                 isDragOver ? "border-amber bg-amber/10" : "border-[rgba(242,177,52,0.16)]"
@@ -1183,7 +1206,7 @@ export function SplitForm() {
             <p className="helper-text text-xs mt-1">CSV must have columns: <span className="font-mono">address,amount</span></p>
           </div>
           <div>
-            <label className="field-label block mb-1">BULK PASTE</label>
+            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">📋 Paste addresses?</label>
             <textarea
               rows={2}
               placeholder="0x123...,1.5&#10;0x456...,2.0"
@@ -1203,7 +1226,7 @@ export function SplitForm() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <label className="field-label">SAVED LISTS</label>
+          <label className="field-label text-amber text-xs uppercase tracking-wider">📂 Load a saved list?</label>
           <select
             ref={savedListSelectRef}
             onChange={(e) => loadList(e.target.value)}
@@ -1250,7 +1273,7 @@ export function SplitForm() {
 
         <div>
           <div className="flex justify-between items-center mb-2">
-            <span className="section-heading text-sm">RECIPIENTS ({validRecipientsCount})</span>
+            <span className="section-heading text-sm text-amber">👤 Who receives the funds? ({validRecipientsCount})</span>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -1320,7 +1343,7 @@ export function SplitForm() {
         <div className="border-t border-[rgba(242,177,52,0.16)] pt-3 mt-3">
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <span className="field-label block">TOTAL</span>
+              <span className="field-label block text-amber text-xs uppercase tracking-wider">💰 Total to send?</span>
               <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>
             </div>
             <div>
