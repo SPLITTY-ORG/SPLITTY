@@ -5,11 +5,11 @@ export default defineConfig({
   plugins: [react()],
   server: { host: true },
   optimizeDeps: {
-    exclude: ['@solana/web3.js', '@solana/kit', '@solana-program/system'],
+    exclude: ['@solana/web3.js', '@solana/kit', '@solana-program/token', '@solana-program/system'],
   },
   build: {
     rollupOptions: {
-      external: ['@solana/web3.js', '@solana/kit', '@solana-program/system'],
+      external: ['@solana/web3.js', '@solana/kit', '@solana-program/token', '@solana-program/system'],
     },
   },
 });
