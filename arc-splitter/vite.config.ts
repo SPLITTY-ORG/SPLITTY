@@ -1,24 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
-  plugins: [
-    react(),
-    nodePolyfills({
-      include: ['buffer'],
-      globals: {
-        Buffer: true,
-      },
-    }),
-  ],
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false,
-      },
+  plugins: [react()],
+  server: { host: true },
+  optimizeDeps: {
+    exclude: ['@solana/web3.js', '@solana/kit', '@solana-program/system'],
+  },
+  build: {
+    rollupOptions: {
+      external: ['@solana/web3.js', '@solana/kit', '@solana-program/system'],
     },
   },
 });
