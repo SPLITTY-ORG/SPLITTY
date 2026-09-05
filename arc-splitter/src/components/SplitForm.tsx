@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast";
 import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { FORWARDER_ADDRESS, forwarderAbi, buildTransferCalls } from "../utils/multicall";
+import { splitEqually } from "../utils/splitMath";
 import { supabase } from "../lib/supabase";
 import { chainConfig } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
@@ -457,8 +458,16 @@ export function SplitForm() {
       .map((r, i) => ({ addr: r.address.trim(), i }))
       .filter(x => x.addr);
     if (!total || filledIndexes.length === 0) return;
-    const each = (total / filledIndexes.length).toFixed(activeDecimals);
-    filledIndexes.forEach(({ i }) => {
+
+    let shares: string[];
+    try {
+      shares = splitEqually(totalAmount.trim(), filledIndexes.length, activeDecimals);
+    } catch {
+      return; // still mid-typing, not a parseable amount yet
+    }
+
+    filledIndexes.forEach(({ i }, shareIndex) => {
+      const each = shares[shareIndex];
       const current = watch(`recipients.${i}.amount`);
       if (current !== each) setValue(`recipients.${i}.amount`, each);
     });
