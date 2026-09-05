@@ -83,6 +83,11 @@ function RowSummary({ record }: { record: TxRecord }) {
   }
   // batch_split
   const recipients = data?.recipients?.length ?? 0;
+  // Rows written before per-recipient outcomes were recorded have no
+  // success field, so only an explicit false counts as a failure.
+  const failed = Array.isArray(data?.recipients)
+    ? data.recipients.filter((r: { success?: boolean }) => r?.success === false).length
+    : 0;
   const total = safeAmount(data?.totalAmount);
   const symbol = data?.token?.symbol || "USDC";
   const funding = data?.fundingSource || "native";
@@ -93,6 +98,11 @@ function RowSummary({ record }: { record: TxRecord }) {
       <span className="text-[#9C917E] text-xs uppercase tracking-wide ml-1">
         {funding}
       </span>
+      {failed > 0 && (
+        <span className="text-[#C4553D] text-xs font-mono ml-2">
+          · {failed} not sent
+        </span>
+      )}
     </p>
   );
 }
