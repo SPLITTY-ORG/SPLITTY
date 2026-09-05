@@ -31,6 +31,16 @@ import {
   Link,
   ArrowDownToLine,
   ArrowRightLeft,
+  Coins,
+  Split,
+  Send as SendIcon,
+  Banknote,
+  FileSpreadsheet,
+  Clipboard,
+  Folder,
+  Save,
+  Users,
+  Receipt,
 } from "lucide-react";
 
 type Recipient = {
@@ -102,7 +112,7 @@ type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | 
 
 export function SplitForm() {
   const [csvError, setCsvError] = useState<string | null>(null);
-  const [isEqualMode, setIsEqualMode] = useState(true);
+  const [isEqualMode, setIsEqualMode] = useState(false); // default to CUSTOM
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txHash, setTxHash] = useState<Address | null>(null);
   const [bulkInput, setBulkInput] = useState("");
@@ -234,6 +244,7 @@ export function SplitForm() {
     setValue("recipients", list.recipients);
     toastSuccess(`Loaded "${list.list_name}"`);
     play("click");
+    setTimeout(() => handleSubmit(() => {})(), 0);
   };
 
   const saveCurrentList = async () => {
@@ -779,7 +790,7 @@ export function SplitForm() {
       return;
     }
     if (fundingSource === "unified" && unifiedAvailable < totalNeededNum) {
-      toastError(`Insufficient unified balance (need ${totalNeededNum} ${tokenSymbol})`);
+      toastError(`Insufficient gateway balance (need ${totalNeededNum} ${tokenSymbol})`);
       return;
     }
     if (fundingSource === "hybrid" && (nativeContribution + unifiedContribution) < totalNeededNum) {
@@ -963,7 +974,9 @@ export function SplitForm() {
         )}
 
         <div className="mb-4">
-          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ What asset are you splitting?</label>
+          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+            <Coins size={14} className="inline-block" /> What asset are you sending?
+          </label>
           <select
             value={isCustomToken ? "custom" : USDC_ADDRESS}
             onChange={(e) => {
@@ -1018,7 +1031,9 @@ export function SplitForm() {
         </div>
 
         <div className="mb-4">
-          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ How do you want to split?</label>
+          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+            <Split size={14} className="inline-block" /> How should this be split?
+          </label>
           <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             <button
               type="button"
@@ -1047,7 +1062,9 @@ export function SplitForm() {
 
         {isEqualMode && (
           <div className="mb-4">
-            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ How much total?</label>
+            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+              <SendIcon size={14} className="inline-block" /> How much are you sending?
+            </label>
             <input
               type="number"
               step="0.000001"
@@ -1065,10 +1082,16 @@ export function SplitForm() {
         )}
 
         <div className="mb-4">
-          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">❓ Where should the funds come from?</label>
+          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+            <Banknote size={14} className="inline-block" /> Where should the funds come from?
+          </label>
           <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             {["native", "unified", "hybrid"].map((src) => {
               const isDisabled = isCustomToken && src !== "native";
+              // Custom labels for funding sources
+              let label = src.toUpperCase();
+              if (src === "unified") label = "GATEWAY BALANCE";
+              if (src === "hybrid") label = "NATIVE/GATEWAY";
               return (
                 <button
                   key={src}
@@ -1087,7 +1110,7 @@ export function SplitForm() {
                   } ${isDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
                   title={isDisabled ? "Coming soon – only native funding supported for custom tokens" : ""}
                 >
-                  <span className="truncate">{src.toUpperCase()}</span>
+                  <span className="truncate">{label}</span>
                   {isDisabled && <span className="hidden sm:inline"> (soon)</span>}
                 </button>
               );
@@ -1100,7 +1123,7 @@ export function SplitForm() {
                 <span className={nativeContribution > 0 ? "text-[#EDE3D0]" : ""}>{nativeContribution.toFixed(activeDecimals)} {tokenSymbol}</span>
               </div>
               <div className="flex justify-between">
-                <span>Unified</span>
+                <span>Gateway Balance</span>
                 <span className={unifiedContribution > 0 ? "text-[#EDE3D0]" : ""}>{unifiedContribution.toFixed(activeDecimals)} {tokenSymbol}</span>
               </div>
               <div className="flex justify-between border-t border-[rgba(242,177,52,0.16)] pt-1">
@@ -1115,7 +1138,7 @@ export function SplitForm() {
             </div>
           )}
 
-          {/* ----- GATEWAY BALANCE BREAKDOWN (when UNIFIED or HYBRID) ----- */}
+          {/* ----- GATEWAY BALANCE BREAKDOWN (when GATEWAY BALANCE or NATIVE/GATEWAY) ----- */}
           {(fundingSource === "unified" || fundingSource === "hybrid") && (
             <div className="mt-2 pt-2 border-t border-[rgba(242,177,52,0.16)]">
               <div className="text-xs text-[#9C917E]">Gateway balances:</div>
@@ -1183,7 +1206,9 @@ export function SplitForm() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">📄 Import CSV?</label>
+            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+              <FileSpreadsheet size={14} className="inline-block" /> Import CSV?
+            </label>
             <div
               className={`border-2 border-dashed rounded p-3 text-center transition ${
                 isDragOver ? "border-amber bg-amber/10" : "border-[rgba(242,177,52,0.16)]"
@@ -1206,7 +1231,9 @@ export function SplitForm() {
             <p className="helper-text text-xs mt-1">CSV must have columns: <span className="font-mono">address,amount</span></p>
           </div>
           <div>
-            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider">📋 Paste addresses?</label>
+            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+              <Clipboard size={14} className="inline-block" /> Paste addresses?
+            </label>
             <textarea
               rows={2}
               placeholder="0x123...,1.5&#10;0x456...,2.0"
@@ -1226,7 +1253,9 @@ export function SplitForm() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <label className="field-label text-amber text-xs uppercase tracking-wider">📂 Load a saved list?</label>
+          <label className="field-label text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+            <Folder size={14} className="inline-block" /> Load a saved list?
+          </label>
           <select
             ref={savedListSelectRef}
             onChange={(e) => loadList(e.target.value)}
@@ -1273,7 +1302,9 @@ export function SplitForm() {
 
         <div>
           <div className="flex justify-between items-center mb-2">
-            <span className="section-heading text-sm text-amber">👤 Who receives the funds? ({validRecipientsCount})</span>
+            <span className="section-heading text-sm text-amber flex items-center gap-1">
+              <Users size={14} className="inline-block" /> Who gets paid? ({validRecipientsCount})
+            </span>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -1343,7 +1374,9 @@ export function SplitForm() {
         <div className="border-t border-[rgba(242,177,52,0.16)] pt-3 mt-3">
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <span className="field-label block text-amber text-xs uppercase tracking-wider">💰 Total to send?</span>
+              <span className="field-label block text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+                <Receipt size={14} className="inline-block" /> Review the total
+              </span>
               <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>
             </div>
             <div>
@@ -1473,7 +1506,11 @@ export function SplitForm() {
                 </div>
                 <div className="flex justify-between text-sm mt-2">
                   <span className="field-label">Funding</span>
-                  <span className="data-value">{fundingSource.toUpperCase()}</span>
+                  <span className="data-value">
+                    {fundingSource === "unified" ? "GATEWAY BALANCE" :
+                     fundingSource === "hybrid" ? "NATIVE/GATEWAY" :
+                     fundingSource.toUpperCase()}
+                  </span>
                 </div>
                 {fundingSource !== "native" && (
                   <div className="flex justify-between text-sm mt-2">
@@ -1483,7 +1520,7 @@ export function SplitForm() {
                 )}
                 {fundingSource !== "native" && (
                   <div className="flex justify-between text-sm mt-2">
-                    <span className="field-label">Unified</span>
+                    <span className="field-label">Gateway Balance</span>
                     <span className="data-value">{unifiedContribution.toFixed(activeDecimals)} {tokenSymbol}</span>
                   </div>
                 )}
