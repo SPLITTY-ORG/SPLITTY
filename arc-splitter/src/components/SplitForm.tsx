@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { parse as parseCSV } from "csv-parse/sync";
-import { isAddress, getAddress, formatUnits, parseUnits, type Address, decodeEventLog } from "viem";
+import { isAddress, getAddress, formatUnits, parseUnits, type Address } from "viem";
 import {
   useAccount,
   useWriteContract,
@@ -14,6 +14,12 @@ import {
 import toast from "react-hot-toast";
 import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { FORWARDER_ADDRESS, forwarderAbi, buildTransferCalls } from "../utils/multicall";
+import { splitEqually } from "../utils/splitMath";
+import {
+  decodeTransfers,
+  resolveOutcomes,
+  type RecipientOutcome,
+} from "../utils/transferOutcomes";
 import { supabase } from "../lib/supabase";
 import { chainConfig } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
@@ -96,19 +102,8 @@ const ERC20_ABI = [
   },
 ] as const;
 
-const TRANSFER_EVENT_ABI = {
-  anonymous: false,
-  inputs: [
-    { indexed: true, name: "from", type: "address" },
-    { indexed: true, name: "to", type: "address" },
-    { indexed: false, name: "value", type: "uint256" },
-  ],
-  name: "Transfer",
-  type: "event",
-} as const;
-
 type FundingSource = "native" | "unified" | "hybrid";
-type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | "confirmed" | "failed";
+type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | "confirmed" | "partial" | "failed";
 
 export function SplitForm() {
   const [csvError, setCsvError] = useState<string | null>(null);
@@ -135,6 +130,7 @@ export function SplitForm() {
   const [statusMessage, setStatusMessage] = useState("");
   const [txLabel, setTxLabel] = useState("");
   const [txError, setTxError] = useState<string | null>(null);
+  const [failedRecipients, setFailedRecipients] = useState<RecipientOutcome[]>([]);
   const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
   const [showAllRecipients, setShowAllRecipients] = useState(false);
 
@@ -329,28 +325,10 @@ export function SplitForm() {
       const saveHistory = async () => {
         setSavingHistory(true);
         try {
-          const transfers = receipt.logs
-            .filter(log => log.address.toLowerCase() === activeTokenAddress.toLowerCase())
-            .map(log => {
-              try {
-                const decoded = decodeEventLog({
-                  abi: [TRANSFER_EVENT_ABI],
-                  data: log.data,
-                  topics: log.topics,
-                });
-                return { to: decoded.args.to as string, value: decoded.args.value as bigint };
-              } catch { return null; }
-            })
-            .filter((t): t is { to: string; value: bigint } => t !== null);
-
-          const successfulTo = new Set(transfers.map(t => getAddress(t.to)));
-          const recipientsWithStatus = pendingData.recipients
-            .filter(r => r.address.trim() && r.amount.trim())
-            .map(r => ({
-              address: r.address,
-              amount: r.amount,
-              success: successfulTo.has(getAddress(r.address)),
-            }));
+          const recipientsWithStatus = resolveOutcomes(
+            decodeTransfers(receipt.logs, activeTokenAddress),
+            pendingData.recipients.filter(r => r.address.trim() && r.amount.trim())
+          );
 
           const totalAmountWei = recipientsWithStatus.reduce((sum, r) => {
             const parsed = parseUnits(r.amount, activeDecimals);
@@ -391,7 +369,11 @@ export function SplitForm() {
             if (activeTokenAddress === USDC_ADDRESS) {
               invalidateGateway(26);
             }
-            setTimeout(resetAfterTransaction, 2000);
+            // Keep the list on screen after a partial send, otherwise the
+            // failed recipients are wiped before anyone can act on them.
+            if (recipientsWithStatus.every(r => r.success)) {
+              setTimeout(resetAfterTransaction, 2000);
+            }
           }
         } catch (err) {
           console.error(err);
@@ -457,8 +439,16 @@ export function SplitForm() {
       .map((r, i) => ({ addr: r.address.trim(), i }))
       .filter(x => x.addr);
     if (!total || filledIndexes.length === 0) return;
-    const each = (total / filledIndexes.length).toFixed(activeDecimals);
-    filledIndexes.forEach(({ i }) => {
+
+    let shares: string[];
+    try {
+      shares = splitEqually(totalAmount.trim(), filledIndexes.length, activeDecimals);
+    } catch {
+      return; // still mid-typing, not a parseable amount yet
+    }
+
+    filledIndexes.forEach(({ i }, shareIndex) => {
+      const each = shares[shareIndex];
       const current = watch(`recipients.${i}.amount`);
       if (current !== each) setValue(`recipients.${i}.amount`, each);
     });
@@ -820,6 +810,9 @@ export function SplitForm() {
     setIsSubmitting(true);
     setTxHash(null);
     setTxError(null);
+    setFailedRecipients([]);
+    // Without this, only the first split of a session reaches history.
+    historySavedRef.current = false;
 
     const txLabelText = isCustomToken ? "TOKEN SPLIT" : "USDC SPLIT";
     setTxLabel(`${txLabelText} · ${valid.length} recipients · ${totalNeededNum} ${tokenSymbol}`);
@@ -871,11 +864,30 @@ export function SplitForm() {
 
   useEffect(() => {
     if (isSuccess && receipt && pendingData && address) {
-      setStatus("confirmed");
-      setStatusMessage("Confirmed!");
+      // Calls are submitted with allowFailure: true, so the transaction can
+      // succeed with individual transfers reverted. Report on the transfers
+      // themselves rather than on the transaction.
+      const outcomes = resolveOutcomes(
+        decodeTransfers(receipt.logs, activeTokenAddress),
+        pendingData.recipients.filter(r => r.address.trim() && r.amount.trim())
+      );
+      const failed = outcomes.filter(o => !o.success);
+      setFailedRecipients(failed);
       setTxHash(receipt.transactionHash);
-      play("success");
-      setTimeout(() => play("stamp"), 300);
+
+      if (failed.length > 0) {
+        setStatus("partial");
+        setStatusMessage(
+          `${failed.length} of ${outcomes.length} transfers did not go through`
+        );
+        play("error");
+        toastError(`${failed.length} of ${outcomes.length} transfers failed. The others were sent.`);
+      } else {
+        setStatus("confirmed");
+        setStatusMessage("Confirmed!");
+        play("success");
+        setTimeout(() => play("stamp"), 300);
+      }
       setIsSubmitting(false);
     }
   }, [isSuccess, receipt, pendingData, address]);
@@ -921,6 +933,7 @@ export function SplitForm() {
       case "confirming": return "text-amber";
       case "broadcasting": return "text-amber";
       case "confirmed": return "text-green-400";
+      case "partial": return "text-[#C4553D]";
       case "failed": return "text-[#C4553D]";
       default: return "text-[#9C917E]";
     }
@@ -1404,6 +1417,7 @@ export function SplitForm() {
                 {status === "confirming" && "◌ CONFIRMING"}
                 {status === "broadcasting" && "◌ BROADCASTING"}
                 {status === "confirmed" && "✓ CONFIRMED"}
+                {status === "partial" && "⚠ PARTIALLY SENT"}
                 {status === "failed" && "✗ FAILED"}
               </span>
               <span className="text-[#9C917E] text-xs">{statusMessage}</span>
@@ -1423,6 +1437,38 @@ export function SplitForm() {
               </div>
             )}
             {txError && <div className="text-[#C4553D] text-xs mt-1">{txError}</div>}
+            {failedRecipients.length > 0 && (
+              <div className="mt-2 text-xs">
+                <div className="text-[#C4553D] font-mono mb-1">
+                  These transfers reverted — the money was not sent:
+                </div>
+                <ul className="space-y-0.5">
+                  {failedRecipients.map((r, i) => (
+                    <li key={`${r.address}-${i}`} className="font-mono text-[#9C917E]">
+                      {r.address.slice(0, 6)}…{r.address.slice(-4)} · {r.amount} {tokenSymbol}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue(
+                      "recipients",
+                      failedRecipients.map(r => ({ address: r.address, amount: r.amount }))
+                    );
+                    setValue("totalAmount", "");
+                    setIsEqualMode(false);
+                    setFailedRecipients([]);
+                    setStatus("idle");
+                    setStatusMessage("");
+                    setTxHash(null);
+                  }}
+                  className="mt-2 underline text-[#F2B134] hover:text-[#EDE3D0] font-mono"
+                >
+                  Retry just these — the rest were already paid
+                </button>
+              </div>
+            )}
           </div>
         )}
 
