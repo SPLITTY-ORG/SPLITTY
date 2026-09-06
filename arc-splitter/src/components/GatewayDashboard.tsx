@@ -9,7 +9,7 @@ import { useChainSwitch } from "../hooks/useChainSwitch";
 import { chainConfig, CHAIN_KEYS, GATEWAY_WALLET_ADDRESS } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
-import { ArrowDownToLine, ArrowRightLeft, Info } from "lucide-react";
+import { ArrowDownToLine, ArrowRightLeft, Lightbulb } from "lucide-react";
 
 const USDC_DECIMALS = 6;
 const GATEWAY_WALLET_ABI = [
@@ -194,7 +194,7 @@ export function GatewayDashboard() {
       {/* Gateway description section */}
       <div className="mb-6 p-4 bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded">
         <div className="flex items-start gap-3">
-          <Info size={18} className="text-[#F2B134] shrink-0 mt-0.5" />
+          <Lightbulb size={18} className="text-[#F2B134] shrink-0 mt-0.5" />
           <div>
             <h3 className="text-sm font-semibold text-[#EDE3D0]">What is the Gateway?</h3>
             <p className="text-xs text-[#9C917E] mt-1 leading-relaxed">
@@ -204,7 +204,7 @@ export function GatewayDashboard() {
               instantly — all without paying high gas fees per transfer.
             </p>
             <p className="text-xs text-[#6B5F4F] mt-1">
-              💡 Your Gateway balance appears in the <span className="text-[#EDE3D0]">Unified Balance</span> on the Split tab.
+              <span className="text-[#9C917E]">Tip:</span> Your Gateway balance appears in the <span className="text-[#EDE3D0]">Unified Balance</span> on the Split tab.
             </p>
           </div>
         </div>
