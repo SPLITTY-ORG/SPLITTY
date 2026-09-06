@@ -9,7 +9,7 @@ import { useChainSwitch } from "../hooks/useChainSwitch";
 import { chainConfig, CHAIN_KEYS, GATEWAY_WALLET_ADDRESS } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
-import { ArrowDownToLine, ArrowRightLeft } from "lucide-react";
+import { ArrowDownToLine, ArrowRightLeft, Info } from "lucide-react";
 
 const USDC_DECIMALS = 6;
 const GATEWAY_WALLET_ABI = [
@@ -191,6 +191,25 @@ export function GatewayDashboard() {
 
   return (
     <div className="panel">
+      {/* Gateway description section */}
+      <div className="mb-6 p-4 bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded">
+        <div className="flex items-start gap-3">
+          <Info size={18} className="text-[#F2B134] shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-semibold text-[#EDE3D0]">What is the Gateway?</h3>
+            <p className="text-xs text-[#9C917E] mt-1 leading-relaxed">
+              The Gateway is like a <span className="text-[#F2B134]">unified wallet</span> that holds your USDC 
+              across multiple blockchains. You can <span className="text-[#F2B134]">deposit</span> USDC from other chains 
+              (like Base or Ethereum Sepolia) into your Gateway balance, then <span className="text-[#F2B134]">bridge</span> it to Arc 
+              instantly — all without paying high gas fees per transfer.
+            </p>
+            <p className="text-xs text-[#6B5F4F] mt-1">
+              💡 Your Gateway balance appears in the <span className="text-[#EDE3D0]">Unified Balance</span> on the Split tab.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 mb-4">
         <span className="terminal-label">Gateway</span>
         <span className="text-xs text-[#9C917E] ml-2">// passive</span>
@@ -299,7 +318,10 @@ export function GatewayDashboard() {
         </div>
 
         <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-4">
-          <h4 className="field-label text-sm mb-3">Bridge to Arc</h4>
+          <h4 className="field-label text-sm mb-3">INSTANT USDC BRIDGE TO ARC VIA GATEWAY BALANCE</h4>
+          <p className="text-xs text-[#9C917E] mb-3">
+            Move USDC from your Gateway balance to Arc — instant and gas‑efficient.
+          </p>
           {bridgeSwitch.isMismatched && (
             <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2 mb-3 flex flex-wrap items-center gap-2">
               <span className="text-[#C4553D] text-sm flex-1 min-w-[140px]">Switch to {bridgeSwitch.targetChain.label} to continue.</span>

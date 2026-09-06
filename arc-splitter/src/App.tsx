@@ -219,7 +219,7 @@ function App() {
             <div className="flex items-center gap-1">
               {[
                 { id: "split", label: "SPLIT" },
-                { id: "gateway", label: "GATEWAY" },
+                { id: "gateway", label: "FUND GATEWAY" },
                 { id: "history", label: "HISTORY" },
               ].map((tab) => (
                 <button
