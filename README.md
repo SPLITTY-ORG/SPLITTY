@@ -1,36 +1,32 @@
-# Arc Splitter
+# React + TypeScript + Vite
 
-Batch USDC payments on Arc Testnet. Paste a list of addresses and amounts and
-pay everyone in a single transaction, funded from your Arc wallet, from Circle
-Gateway balances on other chains, or from both.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-## Running it
+Currently, two official plugins are available:
 
-The app lives in `arc-splitter/`.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the Oxlint configuration
+
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
 ```
-cd arc-splitter
-npm install
-cp .env.example .env    # then fill in the values
-npm run dev
-```
 
-| Command | |
-|---|---|
-| `npm run dev` | local dev server |
-| `npm run test` | vitest |
-| `npm run lint` | oxlint |
-| `npm run build` | production build |
-
-## Layout
-
-| | |
-|---|---|
-| `arc-splitter/` | the application |
-| `supabase/migrations/` | database schema |
-| `.github/workflows/` | CI: lint, tests and build on every PR |
-
-## Contributing
-
-`main` is protected — no direct pushes and no force pushes. Open a pull
-request; CI has to pass before it merges.
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
