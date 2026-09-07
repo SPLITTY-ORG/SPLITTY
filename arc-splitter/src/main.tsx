@@ -7,7 +7,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { arcTestnet } from "./chains/arcTestnet";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import App from "./App";
-import "./output.css";
+import "./index.css";
 
 const config = createConfig({
   chains: [arcTestnet],
