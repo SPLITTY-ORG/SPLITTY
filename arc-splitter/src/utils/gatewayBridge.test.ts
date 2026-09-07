@@ -100,16 +100,75 @@ describe("pollTransferStatus", () => {
     await expect(pollTransferStatus("t1")).rejects.toThrow("unknown");
   });
 
-  it("gives up once the timeout passes", async () => {
-    // The bridge may still settle after this point. The caller surfaces the
-    // timeout as a failure, so a user could bridge a second time. Pinned
-    // deliberately so a change here is a decision rather than an accident.
+  it("reports pending, not failure, once the timeout passes", async () => {
+    // The transfer is still in flight. Reporting a failure here would
+    // invite the user to bridge a second time for money already moving.
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonOk({ status: "pending" })));
 
-    const pending = pollTransferStatus("t1", 10000);
-    const assertion = expect(pending).rejects.toThrow("Polling timed out");
+    const watching = pollTransferStatus("t1", 10000);
     await vi.advanceTimersByTimeAsync(20000);
-    await assertion;
+
+    await expect(watching).resolves.toEqual({ status: "pending", reason: "timeout" });
+  });
+
+  it("reports stopped when the caller gives up early", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonOk({ status: "pending" })));
+    const controller = new AbortController();
+
+    const watching = pollTransferStatus("t1", 600000, controller.signal);
+    await vi.advanceTimersByTimeAsync(5000);
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(0);
+
+    await expect(watching).resolves.toEqual({ status: "pending", reason: "stopped" });
+  });
+
+  it("stops without waiting out the rest of the poll interval", async () => {
+    // Aborting mid-sleep has to wake the wait, otherwise "stop waiting"
+    // would still hang for up to five seconds.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonOk({ status: "pending" })));
+    const controller = new AbortController();
+
+    const watching = pollTransferStatus("t1", 600000, controller.signal);
+    await vi.advanceTimersByTimeAsync(1);
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(1);
+
+    await expect(watching).resolves.toMatchObject({ reason: "stopped" });
+  });
+
+  it("returns immediately when the signal is already aborted", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonOk({ status: "pending" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      pollTransferStatus("t1", 600000, controller.signal)
+    ).resolves.toEqual({ status: "pending", reason: "stopped" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("still throws on a real failure even when a signal is supplied", async () => {
+    // Stopping the watch must not mask a transfer that genuinely failed.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonOk({ status: "failed" })));
+    const controller = new AbortController();
+
+    await expect(
+      pollTransferStatus("t1", 600000, controller.signal)
+    ).rejects.toThrow(/failed/);
+  });
+
+  it("still settles normally when a signal is supplied but never fired", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonOk({ status: "finalized", transactionHash: "0xok" }))
+    );
+    const controller = new AbortController();
+
+    await expect(
+      pollTransferStatus("t1", 600000, controller.signal)
+    ).resolves.toMatchObject({ status: "finalized", transactionHash: "0xok" });
   });
 });
 

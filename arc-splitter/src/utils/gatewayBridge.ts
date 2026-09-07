@@ -126,13 +126,53 @@ export async function bridgeToArc(
   return { transferId, success: true };
 }
 
-export async function pollTransferStatus(transferId: string, timeoutMs = 120000): Promise<{ status: string; transactionHash?: string }> {
+/**
+ * The result of watching a transfer.
+ *
+ * "pending" is not a failure. A Gateway transfer cannot be cancelled once
+ * the burn intent is signed and submitted, so giving up on watching it says
+ * nothing about whether the funds arrive. Reporting it as a failure invites
+ * the user to bridge a second time for money that is already moving.
+ */
+export type TransferOutcome =
+  | { status: "finalized" | "confirmed"; transactionHash?: string }
+  | { status: "pending"; reason: "timeout" | "stopped" };
+
+/** Resolves after ms, or as soon as the signal aborts. */
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const timer = setTimeout(finish, ms);
+    function finish() {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", finish);
+      resolve();
+    }
+    signal?.addEventListener("abort", finish, { once: true });
+  });
+}
+
+/**
+ * Watch a transfer until it settles, the caller stops waiting, or the
+ * timeout passes.
+ *
+ * Throws only when the transfer itself failed or expired. Running out of
+ * patience returns a pending outcome instead, because the transfer is still
+ * in flight and the caller should say so rather than report an error.
+ */
+export async function pollTransferStatus(
+  transferId: string,
+  timeoutMs = 120000,
+  signal?: AbortSignal
+): Promise<TransferOutcome> {
   const start = Date.now();
   const interval = 5000;
   while (Date.now() - start < timeoutMs) {
+    if (signal?.aborted) return { status: "pending", reason: "stopped" };
+
     const res = await fetch(`${GATEWAY_API_BASE}/v1/transfer/${transferId}`);
     if (!res.ok) {
-      await new Promise(r => setTimeout(r, interval));
+      await wait(interval, signal);
       continue;
     }
     const json = await res.json();
@@ -143,7 +183,8 @@ export async function pollTransferStatus(transferId: string, timeoutMs = 120000)
     if (status === "failed" || status === "expired") {
       throw new Error(`Transfer ${status}: ${json.forwardingDetails?.failureReason || "unknown"}`);
     }
-    await new Promise(r => setTimeout(r, interval));
+    await wait(interval, signal);
   }
-  throw new Error("Polling timed out");
+  if (signal?.aborted) return { status: "pending", reason: "stopped" };
+  return { status: "pending", reason: "timeout" };
 }

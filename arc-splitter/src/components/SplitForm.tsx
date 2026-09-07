@@ -120,6 +120,11 @@ export function SplitForm() {
   const [isSavingList, setIsSavingList] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
   const [bridgeProgress, setBridgeProgress] = useState("");
+  const [pendingBridge, setPendingBridge] = useState<{
+    transferId: string;
+    reason: "timeout" | "stopped";
+  } | null>(null);
+  const bridgeAbortRef = useRef<AbortController | null>(null);
   const [networkStatus, setNetworkStatus] = useState("");
   const [isCustomToken, setIsCustomToken] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState("");
@@ -670,7 +675,10 @@ export function SplitForm() {
       setBridgeProgress(`Bridge submitted (ID: ${transferId}). Waiting for finality...`);
       setNetworkStatus(`Waiting for bridge finality...`);
 
-      const result = await pollTransferStatus(transferId, 180000);
+      const controller = new AbortController();
+      bridgeAbortRef.current = controller;
+      const result = await pollTransferStatus(transferId, 180000, controller.signal);
+      bridgeAbortRef.current = null;
       if (result.status === "finalized" || result.status === "confirmed") {
         toastSuccess(`Bridge completed! Transaction: ${result.transactionHash || transferId}`);
         setNetworkStatus(`Bridge complete!`);
@@ -697,8 +705,23 @@ export function SplitForm() {
         setNetworkStatus(`Refreshing balance...`);
         await refetchBalance();
         await executeSplitAfterBridge();
-      } else {
-        throw new Error("Bridge failed or timed out.");
+      } else if (result.status === "pending") {
+        // Not a failure. A Gateway transfer cannot be cancelled once signed,
+        // so giving up on watching says nothing about whether the funds
+        // arrive. Calling it a failure invites a second bridge for money
+        // that is already moving, so the split is not run either.
+        setPendingBridge({ transferId, reason: result.reason });
+        setBridgeTxHash(transferId);
+        setNetworkStatus("Bridge still in progress");
+        setStatus("idle");
+        setStatusMessage("");
+        setIsSubmitting(false);
+        toastInfo(
+          result.reason === "stopped"
+            ? "Stopped watching. The bridge is still running, so your funds are still on their way."
+            : "The bridge is taking longer than usual. It is still running, so do not send it again."
+        );
+        return;
       }
     } catch (err: any) {
       console.error(err);
@@ -830,6 +853,7 @@ export function SplitForm() {
     setTxHash(null);
     setTxError(null);
     setFailedRecipients([]);
+    setPendingBridge(null);
     // Without this, only the first split of a session reaches history.
     historySavedRef.current = false;
 
@@ -1233,6 +1257,42 @@ export function SplitForm() {
           <div className="bg-amber/10 border border-amber/30 rounded p-3 mb-4">
             <p className="text-amber text-sm">{bridgeProgress}</p>
             <p className="text-[#9C917E] text-xs mt-1">{networkStatus}</p>
+            <button
+              type="button"
+              onClick={() => bridgeAbortRef.current?.abort()}
+              className="mt-2 text-xs font-mono underline text-[#9C917E] hover:text-[#EDE3D0]"
+            >
+              Stop waiting
+            </button>
+            <p className="text-[#6B5F4F] text-[10px] mt-1">
+              This only stops the countdown. The transfer cannot be cancelled
+              once signed, and carries on either way.
+            </p>
+          </div>
+        )}
+
+        {pendingBridge && !isBridging && (
+          <div className="bg-amber/10 border border-amber/30 rounded p-3 mb-4">
+            <p className="text-amber text-sm font-mono">BRIDGE STILL IN PROGRESS</p>
+            <p className="text-[#EDE3D0] text-xs mt-1">
+              {pendingBridge.reason === "stopped"
+                ? "You stopped waiting. The transfer was already signed and submitted, so it is still on its way."
+                : "This is taking longer than usual. The transfer was signed and submitted, so it is still on its way."}
+            </p>
+            <p className="text-[#9C917E] text-xs mt-2 font-mono break-all">
+              Transfer ID: {pendingBridge.transferId}
+            </p>
+            <p className="text-[#6B5F4F] text-[10px] mt-1">
+              Do not bridge again for this amount. Check your Gateway balance
+              in a few minutes, then run the split.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPendingBridge(null)}
+              className="mt-2 text-xs font-mono underline text-[#9C917E] hover:text-[#EDE3D0]"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
