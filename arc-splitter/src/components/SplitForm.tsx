@@ -20,6 +20,7 @@ import {
   resolveOutcomes,
   type RecipientOutcome,
 } from "../utils/transferOutcomes";
+import { exceedsTokenPrecision } from "../utils/amountPrecision";
 import { supabase } from "../lib/supabase";
 import { chainConfig } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
@@ -518,6 +519,12 @@ export function SplitForm() {
             errors.push(`Row ${index + 1}: Invalid amount "${amt}"`);
             return;
           }
+          // parseUnits rounds rather than truncates, so an amount with more
+          // decimals than the token would be sent as a different number.
+          if (exceedsTokenPrecision(amt, activeDecimals)) {
+            errors.push(`Row ${index + 1}: "${amt}" has more than ${activeDecimals} decimal places`);
+            return;
+          }
           newRecipients.push({ address: getAddress(addr), amount: amt });
         });
         if (errors.length > 0) {
@@ -559,6 +566,10 @@ export function SplitForm() {
       }
       if (isNaN(parseFloat(amt)) || parseFloat(amt) <= 0) {
         errors.push(`Line ${index + 1}: invalid amount "${amt}"`);
+        return;
+      }
+      if (exceedsTokenPrecision(amt, activeDecimals)) {
+        errors.push(`Line ${index + 1}: "${amt}" has more than ${activeDecimals} decimal places`);
         return;
       }
       newRecipients.push({ address: getAddress(addr), amount: amt });
@@ -762,6 +773,14 @@ export function SplitForm() {
     if (duplicates.length > 0) {
       const duplicateList = duplicates.map(r => r.address.slice(0, 6) + "…" + r.address.slice(-4)).join(", ");
       toastError(`Duplicate address(es) found: ${duplicateList}. Please remove duplicates.`);
+      return;
+    }
+
+    // Catches amounts typed directly into a row, which never pass through
+    // the CSV or paste importers.
+    const tooPrecise = valid.filter(r => exceedsTokenPrecision(r.amount, activeDecimals));
+    if (tooPrecise.length > 0) {
+      toastError(`${tooPrecise.length} amount(s) have more than ${activeDecimals} decimal places. ${tokenSymbol} cannot hold that precision, so they would be rounded up and send more than you entered.`);
       return;
     }
 

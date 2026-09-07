@@ -99,10 +99,11 @@ describe("buildTransferCalls", () => {
   });
 
   it("rounds up when an amount has more decimals than the token", () => {
-    // Documents current behaviour, which is a real hazard: viem's parseUnits
-    // rounds rather than truncates, so a CSV row of 1.9999999 sends 2.
-    // CSV import only checks that the amount parses and is positive, so this
-    // reaches the chain. Captured here so any fix is a deliberate change.
+    // Documents that viem's parseUnits rounds rather than truncates, so
+    // 1.9999999 at 6 decimals becomes 2. This function is deliberately left
+    // permissive; over-precise amounts are rejected on the way in instead,
+    // by exceedsTokenPrecision in the CSV, paste and review paths. Pinned so
+    // that a change in rounding behaviour is caught here.
     const [call] = buildTransferCalls(
       TOKEN,
       SENDER,
