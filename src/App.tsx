@@ -15,16 +15,13 @@ import { RecentActivity } from "./components/RecentActivity";
 import SplittyLogo from "./components/SplittyLogo";
 import SplittyLoadingText from "./components/SplittyLoadingText";
 import {
-  Zap,
-  Send,
-  Route,
-  Layers,
-  FileSpreadsheet,
-  Wallet,
-  Gauge,
-  ShieldCheck,
-  CheckCircle2,
   ArrowRight,
+  FileSpreadsheet,
+  Fuel,
+  Split,
+  Wallet,
+  Waypoints,
+  Zap,
 } from "lucide-react";
 
 type Tab = "split" | "gateway" | "history";
@@ -70,127 +67,113 @@ function App() {
 
   // ========== LANDING PAGE (unauthenticated) ==========
   if (!authenticated) {
+    const features = [
+      { icon: Split, label: "Batch Transfer", note: "One transaction, many recipients" },
+      { icon: Waypoints, label: "Gateway Bridging", note: "Pull funds from other chains" },
+      { icon: Wallet, label: "Unified Balance", note: "Wallet and Gateway as one pot" },
+      { icon: FileSpreadsheet, label: "CSV & Lists", note: "Paste or upload, save for reuse" },
+      { icon: Zap, label: "Sub-second Finality", note: "Settled before you look away" },
+      { icon: Fuel, label: "USDC Gas", note: "No separate gas token to hold" },
+    ];
+
     return (
-      <div className="min-h-screen bg-[#15100B] text-[#EDE3D0] overflow-hidden relative">
-        {/* Background blobs */}
-        <div aria-hidden="true" className="absolute inset-0 -z-10 overflow-hidden">
-          <div
-            style={{
-              clipPath:
-                "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
-            }}
-            className="absolute left-[calc(50%-11rem)] top-[-20rem] aspect-[1155/678] w-[36rem] -translate-x-1/2 rotate-30 bg-[#F2B134] opacity-10 blur-3xl sm:left-[calc(50%-30rem)] sm:w-[72rem]"
-          />
-          <div
-            style={{
-              clipPath:
-                "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
-            }}
-            className="absolute left-[calc(50%+3rem)] bottom-[-20rem] aspect-[1155/678] w-[36rem] -translate-x-1/2 rotate-30 bg-[#8A6A2C] opacity-10 blur-3xl sm:left-[calc(50%+36rem)] sm:w-[72rem]"
-          />
+      <div className="relative min-h-screen overflow-x-hidden bg-[#15100B] text-[#EDE3D0]">
+        {/* Ambient glow. Fixed and clipped so it cannot create sideways scroll. */}
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute left-1/2 top-[-25%] h-[55vh] w-[120vw] -translate-x-1/2 rounded-full bg-[#F2B134] opacity-[0.07] blur-[110px]" />
+          <div className="absolute bottom-[-30%] left-1/2 h-[50vh] w-[100vw] -translate-x-1/2 rounded-full bg-[#8A6A2C] opacity-[0.10] blur-[110px]" />
         </div>
 
-        <div className="relative isolate px-6 pt-14 lg:px-8 flex flex-col items-center justify-center min-h-screen">
-          <div className="mx-auto max-w-3xl text-center">
-            {/* Logo */}
-            <div className="mb-8 flex justify-center">
-              <SplittyLogo size={48} />
-            </div>
+        <main className="mx-auto flex w-full max-w-5xl flex-col items-center px-5 py-14 sm:px-8 sm:py-20">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <SplittyLogo size={34} />
+            <span className="font-sans text-lg font-bold tracking-tight text-[#F2B134] sm:text-xl">
+              SPLITTY
+            </span>
+          </div>
 
-            {/* Headline – sans-serif */}
-            <h1 className="text-4xl font-semibold tracking-tight text-[#EDE3D0] sm:text-5xl md:text-6xl font-sans">
-              Streamline Native Arc Tokens and <br className="hidden sm:block" />
-              USDC Distribution with Batch Transfer
-            </h1>
+          <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-[rgba(242,177,52,0.2)] bg-[#1D1712] px-3 py-1 font-mono text-[10px] tracking-[0.15em] text-[#9C917E] sm:text-[11px]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4ADE80]" />
+            LIVE ON ARC TESTNET
+          </span>
 
-            {/* Subtext – sans-serif, slightly muted */}
-            <p className="mt-6 text-lg font-medium text-[#9C917E] sm:text-xl font-sans">
-              Powered by <span className="text-[#F2B134]">Arc</span> and{" "}
-              <span className="text-[#F2B134]">Circle Gateway</span>.
-              <br className="hidden sm:block" />
-              Batch‑send payments across chains with unified balance, sub‑second finality, and USDC‑denominated gas.
+          {/* Headline. No hard line break -- it wraps to suit the viewport. */}
+          <h1 className="mt-7 max-w-3xl text-balance text-center font-sans text-[2rem] font-semibold leading-[1.14] tracking-tight text-[#EDE3D0] sm:text-5xl sm:leading-[1.08] lg:text-6xl">
+            Pay everyone at once, <span className="text-[#F2B134]">in one transaction</span>
+          </h1>
+
+          <p className="mt-5 max-w-xl text-balance text-center font-sans text-[15px] leading-relaxed text-[#9C917E] sm:text-lg">
+            Batch-send USDC across chains with a unified balance, sub-second finality
+            and USDC-denominated gas. Powered by{" "}
+            <span className="text-[#EDE3D0]">Arc</span> and{" "}
+            <span className="text-[#EDE3D0]">Circle Gateway</span>.
+          </p>
+
+          {/* CTA. Full width on phones, sized to content from sm up. */}
+          <div className="mt-9 w-full sm:w-auto">
+            <button
+              onClick={() => login()}
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#F2B134] px-8 py-3.5 font-sans text-base font-bold text-[#15100B] shadow-[0_0_45px_-10px_rgba(242,177,52,0.75)] transition-colors hover:bg-[#FFC65A]"
+            >
+              Get started
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <p className="mt-3 text-center font-mono text-[11px] text-[#6B5F4F]">
+              Connect a wallet, or sign in with email
             </p>
+          </div>
 
-            {/* Feature pills – font-mono, with updated icons */}
-            <div className="mt-10 flex flex-wrap justify-center gap-3 text-sm font-mono">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.16)] bg-[#1D1712] px-4 py-1.5 text-[#EDE3D0]">
-                <Send size={14} className="text-[#F2B134]" />
-                Batch Transfer
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.16)] bg-[#1D1712] px-4 py-1.5 text-[#EDE3D0]">
-                <Route size={14} className="text-[#F2B134]" />
-                Gateway Bridging
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.16)] bg-[#1D1712] px-4 py-1.5 text-[#EDE3D0]">
-                <Layers size={14} className="text-[#F2B134]" />
-                Unified Balance
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.16)] bg-[#1D1712] px-4 py-1.5 text-[#EDE3D0]">
-                <FileSpreadsheet size={14} className="text-[#F2B134]" />
-                CSV &amp; Lists
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.16)] bg-[#1D1712] px-4 py-1.5 text-[#EDE3D0]">
-                <Gauge size={14} className="text-[#F2B134]" />
-                Sub‑second Finality
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.16)] bg-[#1D1712] px-4 py-1.5 text-[#EDE3D0]">
-                <ShieldCheck size={14} className="text-[#F2B134]" />
-                USDC Gas
-              </span>
-            </div>
-
-            {/* CTA Button – always visible, pulse & glow */}
-            <div className="mt-12 flex items-center justify-center gap-x-6">
-              <button
-                onClick={() => login()}
-                className="inline-flex items-center justify-center rounded-md bg-[#1D1712] px-8 py-4 text-base font-bold text-[#F2B134] border-2 border-[#F2B134] shadow-[0_0_30px_rgba(242,177,52,0.3)] hover:shadow-[0_0_50px_rgba(242,177,52,0.7)] transition-all duration-200 animate-pulse"
+          {/* Features. Two columns on phones, three from sm up, so the last row
+              is never a lone orphan. */}
+          <div className="mt-14 grid w-full grid-cols-2 gap-3 sm:mt-16 sm:grid-cols-3 sm:gap-4">
+            {features.map(({ icon: Icon, label, note }) => (
+              <div
+                key={label}
+                className="rounded-lg border border-[rgba(242,177,52,0.14)] bg-[#1D1712]/70 p-3.5 text-left transition-colors hover:border-[rgba(242,177,52,0.32)] sm:p-4"
               >
-                Get Started <ArrowRight size={18} className="inline-block ml-2" />
-              </button>
-            </div>
-
-            {/* Illustrative preview – mirrors the real Unified Balance card */}
-            <div className="mt-16 max-w-md mx-auto text-left panel opacity-90">
-              <div className="terminal-label text-xs">UNIFIED BALANCE</div>
-              <div className="text-2xl font-bold font-mono text-[#F2B134]">$1,240.00 USDC</div>
-              <div className="flex flex-wrap gap-4 text-sm text-[#9C917E] mt-1">
-                <span>
-                  wallet <span className="font-mono text-[#EDE3D0]">$480.00</span>
-                </span>
-                <span className="text-[#6B5F4F]">|</span>
-                <span>
-                  gateway <span className="font-mono text-[#EDE3D0]">$760.00</span>
-                </span>
+                <Icon size={16} className="text-[#F2B134]" />
+                <div className="mt-2.5 font-mono text-[12px] font-medium text-[#EDE3D0] sm:text-[13px]">
+                  {label}
+                </div>
+                <div className="mt-1 font-sans text-[11px] leading-snug text-[#6B5F4F] sm:text-xs">
+                  {note}
+                </div>
               </div>
-              <div className="text-[10px] text-[#6B5F4F] mt-2">
-                Example — connect your wallet to see your real balance
-              </div>
-            </div>
+            ))}
+          </div>
 
-            {/* Additional feature row – compact technical highlights */}
-            <div className="mt-6 flex flex-wrap justify-center gap-3 text-xs font-mono text-[#9C917E]">
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 size={12} className="text-[#F2B134]" />
-                USDC‑denominated gas
+          {/* Balance preview */}
+          <div className="mt-14 w-full max-w-md rounded-xl border border-[rgba(242,177,52,0.16)] bg-[#1D1712]/80 p-5 text-left sm:mt-16">
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#6B5F4F]">
+              Unified balance
+            </div>
+            <div className="mt-1.5 font-mono text-3xl font-bold text-[#F2B134] sm:text-4xl">
+              $1,240.00
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-[#9C917E]">
+              <span>
+                wallet <span className="text-[#EDE3D0]">$480.00</span>
               </span>
-              <span className="text-[#6B5F4F]">·</span>
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 size={12} className="text-[#F2B134]" />
-                Sub‑second finality
-              </span>
-              <span className="text-[#6B5F4F]">·</span>
-              <span className="inline-flex items-center gap-1">
-                <CheckCircle2 size={12} className="text-[#F2B134]" />
-                Stable, predictable fees
+              <span className="text-[#6B5F4F]">|</span>
+              <span>
+                gateway <span className="text-[#EDE3D0]">$760.00</span>
               </span>
             </div>
-
-            {/* Footer */}
-            <div className="mt-10 text-xs text-[#6B5F4F] border-t border-[rgba(242,177,52,0.08)] pt-6">
-              Arc Testnet · Circle Gateway · USDC &amp; ERC‑20 tokens
+            <div className="mt-4 border-t border-[rgba(242,177,52,0.1)] pt-3 font-mono text-[10px] text-[#6B5F4F]">
+              Example — connect your wallet to see real balances
             </div>
           </div>
-        </div>
+
+          {/* Footer */}
+          <div className="mt-14 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-[rgba(242,177,52,0.08)] pt-6 font-mono text-[11px] text-[#6B5F4F] sm:mt-16">
+            <span>Arc Testnet</span>
+            <span aria-hidden="true">·</span>
+            <span>Circle Gateway</span>
+            <span aria-hidden="true">·</span>
+            <span>USDC &amp; ERC-20 tokens</span>
+          </div>
+        </main>
       </div>
     );
   }
