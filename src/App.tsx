@@ -104,10 +104,10 @@ function App() {
           </h1>
 
           <p className="mt-5 max-w-xl text-balance text-center font-sans text-[15px] leading-relaxed text-[#9C917E] sm:text-lg">
-            Batch-send USDC across chains with a unified balance, sub-second finality
-            and USDC-denominated gas. Powered by{" "}
-            <span className="text-[#EDE3D0]">Arc</span> and{" "}
-            <span className="text-[#EDE3D0]">Circle Gateway</span>.
+            Seamlessly distribute USDC or any token on{" "}
+            <span className="text-[#EDE3D0]">Arc</span>, powered by{" "}
+            <span className="text-[#EDE3D0]">Circle Gateway</span> — a unified
+            USDC account for instant cross-chain liquidity.
           </p>
 
           {/* CTA. Full width on phones, sized to content from sm up. */}
