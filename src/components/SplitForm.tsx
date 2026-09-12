@@ -12,6 +12,7 @@ import {
   useReadContract,
 } from "wagmi";
 import toast from "react-hot-toast";
+import { useWallets } from "@privy-io/react-auth";
 import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { FORWARDER_ADDRESS, forwarderAbi, buildTransferCalls } from "../utils/multicall";
 import { splitEqually } from "../utils/splitMath";
@@ -146,12 +147,41 @@ export function SplitForm() {
   const historySavedRef = useRef(false);
 
   const { address, chainId } = useAccount();
+  const { wallets } = useWallets();
   const { switchChainAsync } = useSwitchChain();
+
+  const walletSession =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("splitty-wallet-session")
+      : null;
+
+  const embeddedWallet = wallets.find(
+    (wallet) =>
+      wallet.walletClientType === "privy" ||
+      wallet.walletClientType === "privy-v2"
+  );
+
+  const externalWallet = wallets.find(
+    (wallet) =>
+      wallet.walletClientType !== "privy" &&
+      wallet.walletClientType !== "privy-v2"
+  );
+
+  const displayWallet =
+    walletSession === "privy"
+      ? embeddedWallet ?? externalWallet
+      : walletSession === "external"
+        ? externalWallet ?? embeddedWallet
+        : externalWallet ?? embeddedWallet;
+
+  const displayAddress = displayWallet?.address ?? address;
   const { signTypedDataAsync } = useSignTypedData();
   const { play } = useSound();
   const { invalidateWallet, invalidateGateway } = useInvalidateBalances();
 
   const arcSwitch = useChainSwitch("arc");
+  const baseSwitch = useChainSwitch("baseSepolia");
+  const ethSwitch = useChainSwitch("ethereumSepolia");
   const [gatewaySourceChain, setGatewaySourceChain] = useState<keyof typeof chainConfig | null>(null);
   const bridgeSwitch = useChainSwitch(gatewaySourceChain || "arc");
 
@@ -184,6 +214,11 @@ export function SplitForm() {
   const activeDecimals = isCustomToken ? tokenDecimals : USDC_DECIMALS;
 
   const chainIdForBalance = chainId || 5042002;
+  const selectedChainConfig = Object.values(chainConfig).find(
+    (config) => config.chainId === chainIdForBalance
+  );
+  const selectedUSDCAddress = selectedChainConfig?.usdcAddress ?? USDC_ADDRESS;
+
   const { data: balanceRaw, refetch: refetchBalance } = useWalletBalance(
     activeTokenAddress,
     chainIdForBalance
@@ -191,7 +226,7 @@ export function SplitForm() {
   const tokenBalance = balanceRaw ? BigInt(balanceRaw) : undefined;
 
   const { data: usdcBalanceRaw } = useWalletBalance(
-    USDC_ADDRESS,
+    selectedUSDCAddress,
     chainIdForBalance
   );
 
@@ -209,7 +244,7 @@ export function SplitForm() {
     { domain: 0, balance: ethGateway.data ?? "0" },
   ];
 
-  const { writeContract, data: writeData, isPending, error } = useWriteContract();
+  const { writeContract, data: writeData, isPending, error, reset: resetWrite } = useWriteContract();
   const { isLoading: isWaiting, isSuccess, data: receipt } = useWaitForTransactionReceipt({
     hash: writeData,
   });
@@ -243,10 +278,23 @@ export function SplitForm() {
     if (hasUnsavedWork && !confirm(`Load "${list.list_name}"? This will replace the recipients currently in the form.`)) {
       return;
     }
-    setValue("recipients", list.recipients);
+    // Start a fresh split session when loading a saved list.
+setPendingData(null);
+setShowReview(false);
+setStatus("idle");
+setStatusMessage("");
+setTxLabel("");
+setTxError(null);
+setTxHash(null);
+setBridgeTxHash(null);
+setIsSubmitting(false);
+setFailedRecipients([]);
+setPendingBridge(null);
+
+    resetWrite();
+setValue("recipients", list.recipients);
     toastSuccess(`Loaded "${list.list_name}"`);
     play("click");
-    setTimeout(() => handleSubmit(() => {})(), 0);
   };
 
   const saveCurrentList = async () => {
@@ -392,7 +440,22 @@ export function SplitForm() {
     }
   }, [isSuccess, receipt, pendingData, address, activeTokenAddress, tokenSymbol, activeDecimals, fundingSource]);
 
-  const getNativeContributionForHistory = (totalNeededNum: number) => {
+  const getUserFacingTxError = (err: any): string => {
+  const name = err?.name ?? "";
+  const message = err?.shortMessage ?? err?.message ?? "";
+
+  if (
+    name === "UserRejectedRequestError" ||
+    name === "TransactionRejectedRpcError" ||
+    /user rejected|user denied|rejected|denied|cancelled|canceled/i.test(message)
+  ) {
+    return "Transaction cancelled.";
+  }
+
+  return "Transaction failed. Please try again.";
+};
+
+const getNativeContributionForHistory = (totalNeededNum: number) => {
     if (fundingSource === "native") return Math.min(totalNeededNum, nativeAvailable);
     if (fundingSource === "unified") return 0;
     if (fundingSource === "hybrid") return Math.min(totalNeededNum, nativeAvailable);
@@ -855,7 +918,7 @@ export function SplitForm() {
     setFailedRecipients([]);
     setPendingBridge(null);
     // Without this, only the first split of a session reaches history.
-    historySavedRef.current = false;
+      historySavedRef.current = false;
 
     const txLabelText = isCustomToken ? "TOKEN SPLIT" : "USDC SPLIT";
     setTxLabel(`${txLabelText} · ${valid.length} recipients · ${totalNeededNum} ${tokenSymbol}`);
@@ -937,16 +1000,42 @@ export function SplitForm() {
 
   useEffect(() => {
     if (error) {
+      const userError = getUserFacingTxError(error);
       setStatus("failed");
-      setStatusMessage(`Failed: ${error.message || "Unknown error"}`);
-      setTxError(error.message || "Transaction failed");
+      setStatusMessage(`Failed: ${userError}`);
+      setTxError(userError);
       play("error");
-      toastError(error?.message || "Transaction failed");
+      toastError(userError);
       setIsSubmitting(false);
     }
   }, [error]);
 
   const isLoading = isPending || isWaiting || isSubmitting || savingHistory || isBridging;
+
+  const handleNetworkSwitch = async (networkKey: "arc" | "base" | "eth") => {
+    const targetChainId = {
+      arc: 5042002,
+      base: 84532,
+      eth: 11155111,
+    }[networkKey];
+
+    if (chainId === targetChainId) return;
+
+    try {
+      await switchChainAsync({ chainId: targetChainId });
+    } catch (err: any) {
+      const message = err?.shortMessage ?? err?.message ?? "";
+
+      if (
+        err?.code === 4001 ||
+        /user rejected|user denied|rejected|denied|cancelled|canceled/i.test(message)
+      ) {
+        toastError("Network switch cancelled.");
+      } else {
+        toastError("Failed to switch network.");
+      }
+    }
+  };
 
   const getButtonLabel = () => {
     switch (status) {
@@ -1008,7 +1097,34 @@ export function SplitForm() {
           ].map((net) => (
             <div
               key={net.key}
-              className={`network-pill ${net.active ? "network-pill-active" : "network-pill-inactive"}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (net.active) return;
+
+                if (net.key === "arc") {
+                  void arcSwitch.switchChain();
+                } else if (net.key === "base") {
+                  void baseSwitch.switchChain();
+                } else if (net.key === "eth") {
+                  void ethSwitch.switchChain();
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+
+                if (net.active) return;
+
+                if (net.key === "arc") {
+                  void arcSwitch.switchChain();
+                } else if (net.key === "base") {
+                  void baseSwitch.switchChain();
+                } else if (net.key === "eth") {
+                  void ethSwitch.switchChain();
+                }
+              }}
+              className={`network-pill ${net.active ? "network-pill-active" : "network-pill-inactive"} cursor-pointer`}
             >
               <span className={`network-dot ${net.active ? "network-dot-active" : "network-dot-inactive"}`}></span>
               {net.active && <span className="text-[#F2B134]">✓</span>}
@@ -1022,9 +1138,9 @@ export function SplitForm() {
         {address && (
           <div className="flex flex-wrap items-center gap-4 text-sm border-b border-[rgba(242,177,52,0.16)] pb-3 mb-4">
             <span className="field-label">WALLET</span>
-            <span className="data-value font-mono">{address.slice(0, 6)}…{address.slice(-4)}</span>
+            <span className="data-value font-mono">{displayAddress.slice(0, 6)}…{displayAddress.slice(-4)}</span>
             <span className="field-label">BALANCE</span>
-            <span className="data-value font-mono">{nativeAvailable.toFixed(6)} {tokenSymbol}</span>
+            <span className="data-value font-mono">{nativeUSDCBalance.toFixed(6)} USDC</span>
             {networkStatus && <span className="text-amber ml-auto text-xs">{networkStatus}</span>}
           </div>
         )}
