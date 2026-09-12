@@ -1,0 +1,34 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+site:
+  title: SPLITTY Documentation
+  structure:
+    - type: section
+      key: section-2
+      title: Documentation
+      path: documentation
+      description: ""
+      icon: book-blank
+      default: true
+      children:
+        - type: space
+          key: space-2
+          title: Documentation
+          path: documentation
+          default: true
+          content:
+            directory: ./documentation
+    - type: external-link
+      key: external-link-1
+      title: GitHub
+      url: https://github.com/SPLITTY-ORG/SPLITTY
+      draft: true
+    - type: external-link
+      key: external-link-2
+      title: Arc
+      url: https://docs.arc.io/
+      draft: true
+    - type: external-link
+      key: external-link-3
+      title: website
+      url: https://splittyarc.vercel.app/
+      draft: true
