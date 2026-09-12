@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useWallets } from "@privy-io/react-auth";
 import { createPublicClient, http, erc20Abi, type Address } from "viem";
 import { chainConfig, GATEWAY_API_BASE } from "../config/gateway";
 
@@ -10,6 +10,42 @@ export const balanceKeys = {
     ["balance", "gateway", domainId, walletAddress] as const,
   all: (walletAddress: string) => ["balance", walletAddress] as const,
 };
+
+const WALLET_SESSION_KEY = "splitty-wallet-session";
+
+function getPreferredWallet(
+  wallets: Array<{
+    address: Address;
+    walletClientType?: string;
+  }>
+) {
+  const session =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem(WALLET_SESSION_KEY)
+      : null;
+
+  const externalWallet = wallets.find(
+    (wallet) =>
+      wallet.walletClientType !== "privy" &&
+      wallet.walletClientType !== "privy-v2"
+  );
+
+  const embeddedWallet = wallets.find(
+    (wallet) =>
+      wallet.walletClientType === "privy" ||
+      wallet.walletClientType === "privy-v2"
+  );
+
+  if (session === "privy") {
+    return embeddedWallet ?? externalWallet ?? wallets[0];
+  }
+
+  if (session === "external") {
+    return externalWallet ?? embeddedWallet ?? wallets[0];
+  }
+
+  return externalWallet ?? embeddedWallet ?? wallets[0];
+}
 
 async function fetchWalletBalance(
   chainId: number,
@@ -50,8 +86,10 @@ async function fetchGatewayBalance(
 }
 
 export function useWalletBalance(tokenAddress: Address, chainId?: number) {
-  const { address } = useAccount();
-  const walletAddress = address as Address | undefined;
+  const { wallets } = useWallets();
+  const walletAddress = getPreferredWallet(wallets)?.address as
+    | Address
+    | undefined;
   const effectiveChainId = chainId || 5042002;
   return useQuery({
     queryKey: balanceKeys.wallet(effectiveChainId, tokenAddress, walletAddress || "0x"),
@@ -63,8 +101,10 @@ export function useWalletBalance(tokenAddress: Address, chainId?: number) {
 }
 
 export function useGatewayBalance(domainId: number) {
-  const { address } = useAccount();
-  const walletAddress = address as Address | undefined;
+  const { wallets } = useWallets();
+  const walletAddress = getPreferredWallet(wallets)?.address as
+    | Address
+    | undefined;
   return useQuery({
     queryKey: balanceKeys.gateway(domainId, walletAddress || "0x"),
     queryFn: () => fetchGatewayBalance(domainId, walletAddress as Address),
@@ -75,7 +115,8 @@ export function useGatewayBalance(domainId: number) {
 
 export function useInvalidateBalances() {
   const queryClient = useQueryClient();
-  const { address } = useAccount();
+  const { wallets } = useWallets();
+  const address = getPreferredWallet(wallets)?.address;
 
   const invalidateWallet = (chainId: number, tokenAddress: string) => {
     if (!address) return;
@@ -102,8 +143,10 @@ export function useInvalidateBalances() {
 }
 
 export function useAllBalances() {
-  const { address } = useAccount();
-  const walletAddress = address as Address | undefined;
+  const { wallets } = useWallets();
+  const walletAddress = getPreferredWallet(wallets)?.address as
+    | Address
+    | undefined;
   const arcWallet = useWalletBalance(
     "0x3600000000000000000000000000000000000000" as Address,
     5042002

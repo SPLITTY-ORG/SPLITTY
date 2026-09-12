@@ -1,15 +1,13 @@
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { useAccount, useChainId } from "wagmi";
+import { usePrivy, useWallets, useLogin } from "@privy-io/react-auth";
+import { useChainId } from "wagmi";
 import { formatUnits } from "viem";
 import { SplitForm } from "./components/SplitForm";
 import { History } from "./components/History";
 import { GatewayDashboard } from "./components/GatewayDashboard";
 import { useAllBalances } from "./hooks/useBalances";
 import { useSound } from "./hooks/useSound";
-import { GatewaySidebar } from "./components/GatewaySidebar";
-import { RecentActivitySidebar } from "./components/RecentActivitySidebar";
 import { GatewayStatus } from "./components/GatewayStatus";
 import { RecentActivity } from "./components/RecentActivity";
 import SplittyLogo from "./components/SplittyLogo";
@@ -27,19 +25,75 @@ import {
 type Tab = "split" | "gateway" | "history";
 
 function App() {
-  const { ready, authenticated, login, logout } = usePrivy();
+  const { ready, authenticated, logout, user } = usePrivy();
   const { wallets } = useWallets();
-  const wallet = wallets[0];
-  const address = wallet?.address;
+
+  const handleLogout = async () => {
+    window.localStorage.removeItem("splitty-wallet-session");
+    await logout();
+  };
+
+  const { login } = useLogin({
+    onComplete: ({ loginMethod, loginAccount }) => {
+      if (!loginMethod) return;
+
+      const isExternalWallet =
+        loginMethod === "siwe" ||
+        loginMethod === "siws" ||
+        loginAccount?.type === "wallet";
+
+      window.localStorage.setItem(
+        "splitty-wallet-session",
+        isExternalWallet ? "external" : "privy"
+      );
+    },
+  });
+
+  const rabbyWallet = wallets.find(
+    (wallet) =>
+      wallet.meta?.name?.toLowerCase() === "rabby" ||
+      wallet.meta?.id?.toLowerCase().includes("rabby")
+  );
+
+  const embeddedWallet = wallets.find(
+    (wallet) =>
+      wallet.walletClientType === "privy" ||
+      wallet.walletClientType === "privy-v2"
+  );
+
+  const session =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("splitty-wallet-session")
+      : null;
+
+  const externalWallet = wallets.find(
+    (wallet) =>
+      wallet.walletClientType !== "privy" &&
+      wallet.walletClientType !== "privy-v2"
+  );
+
+  const preferredWallet =
+    session === "privy"
+      ? embeddedWallet ?? externalWallet ?? wallets[0]
+      : session === "external"
+        ? externalWallet ?? embeddedWallet ?? wallets[0]
+        : externalWallet ?? embeddedWallet ?? wallets[0];
+
+  const address = preferredWallet?.address ?? user?.wallet?.address;
+
   const chainId = useChainId();
   const { play, muted, toggleMute } = useSound();
   const [activeTab, setActiveTab] = useState<Tab>("split");
 
-  const { arcWallet, arcGateway, baseGateway, ethGateway, isLoading } = useAllBalances();
+  const { arcWallet, arcGateway, baseGateway, ethGateway, isLoading } =
+    useAllBalances();
 
-  const arcWalletNum = arcWallet ? parseFloat(formatUnits(BigInt(arcWallet), 6)) : 0;
+  const arcWalletNum = arcWallet
+    ? parseFloat(formatUnits(BigInt(arcWallet), 6))
+    : 0;
+
   const totalGateway = [arcGateway, baseGateway, ethGateway]
-    .filter(b => b)
+    .filter((b) => b)
     .reduce((sum, b) => sum + parseFloat(b || "0"), 0);
 
   const handleMuteToggle = () => toggleMute();
@@ -68,18 +122,45 @@ function App() {
   // ========== LANDING PAGE (unauthenticated) ==========
   if (!authenticated) {
     const features = [
-      { icon: Split, label: "Batch Transfer", note: "One transaction, many recipients" },
-      { icon: Waypoints, label: "Gateway Bridging", note: "Pull funds from other chains" },
-      { icon: Wallet, label: "Unified Balance", note: "Wallet and Gateway as one pot" },
-      { icon: FileSpreadsheet, label: "CSV & Lists", note: "Paste or upload, save for reuse" },
-      { icon: Zap, label: "Sub-second Finality", note: "Settled before you look away" },
-      { icon: Fuel, label: "USDC Gas", note: "No separate gas token to hold" },
+      {
+        icon: Split,
+        label: "Batch Transfer",
+        note: "One transaction, many recipients",
+      },
+      {
+        icon: Waypoints,
+        label: "Gateway Bridging",
+        note: "Pull funds from other chains",
+      },
+      {
+        icon: Wallet,
+        label: "Unified Balance",
+        note: "Wallet and Gateway as one pot",
+      },
+      {
+        icon: FileSpreadsheet,
+        label: "CSV & Lists",
+        note: "Paste or upload, save for reuse",
+      },
+      {
+        icon: Zap,
+        label: "Sub-second Finality",
+        note: "Settled before you look away",
+      },
+      {
+        icon: Fuel,
+        label: "USDC Gas",
+        note: "No separate gas token to hold",
+      },
     ];
 
     return (
       <div className="relative min-h-screen overflow-x-hidden bg-[#15100B] text-[#EDE3D0]">
         {/* Ambient glow. Fixed and clipped so it cannot create sideways scroll. */}
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+        >
           <div className="absolute left-1/2 top-[-25%] h-[55vh] w-[120vw] -translate-x-1/2 rounded-full bg-[#F2B134] opacity-[0.07] blur-[110px]" />
           <div className="absolute bottom-[-30%] left-1/2 h-[50vh] w-[100vw] -translate-x-1/2 rounded-full bg-[#8A6A2C] opacity-[0.10] blur-[110px]" />
         </div>
@@ -100,7 +181,8 @@ function App() {
 
           {/* Headline. No hard line break -- it wraps to suit the viewport. */}
           <h1 className="mt-7 max-w-3xl text-balance text-center font-sans text-[2rem] font-semibold leading-[1.14] tracking-tight text-[#EDE3D0] sm:text-5xl sm:leading-[1.08] lg:text-6xl">
-            Pay everyone at once, <span className="text-[#F2B134]">in one transaction</span>
+            Pay everyone at once,{" "}
+            <span className="text-[#F2B134]">in one transaction</span>
           </h1>
 
           <p className="mt-5 max-w-xl text-balance text-center font-sans text-[15px] leading-relaxed text-[#9C917E] sm:text-lg">
@@ -117,7 +199,10 @@ function App() {
               className="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#F2B134] px-8 py-3.5 font-sans text-base font-bold text-[#15100B] shadow-[0_0_45px_-10px_rgba(242,177,52,0.75)] transition-colors hover:bg-[#FFC65A]"
             >
               Get started
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight
+                size={18}
+                className="transition-transform group-hover:translate-x-0.5"
+              />
             </button>
             <p className="mt-3 text-center font-mono text-[11px] text-[#6B5F4F]">
               Connect a wallet, or sign in with email
@@ -187,7 +272,9 @@ function App() {
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <SplittyLogo size={28} />
-              <span className="text-xl font-bold font-sans tracking-tight text-[#F2B134]">SPLITTY_</span>
+              <span className="text-xl font-bold font-sans tracking-tight text-[#F2B134]">
+                SPLITTY_
+              </span>
               <span className="blink-cursor text-[#F2B134]"></span>
             </div>
             <div className="hidden sm:flex items-center gap-2">
@@ -231,15 +318,39 @@ function App() {
                 >
                   {muted ? "✕" : "♪"}
                 </button>
+
                 <div className="flex items-center gap-2 bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded-full px-3 py-1.5">
-                  <span className="hidden sm:inline text-xs font-mono text-[#EDE3D0]">
-                    {address?.slice(0, 6)}…{address?.slice(-4)}
-                  </span>
-                  <span className="sm:hidden text-xs font-mono text-[#EDE3D0]">
-                    {address?.slice(0, 4)}…
-                  </span>
                   <button
-                    onClick={logout}
+                    type="button"
+                    disabled={!address}
+                    onClick={async () => {
+                      if (!address) return;
+
+                      try {
+                        await navigator.clipboard.writeText(address);
+                        setStatusMessage("Wallet address copied.");
+                        setTimeout(() => setStatusMessage(""), 2000);
+                      } catch {
+                        setStatusMessage("Could not copy wallet address.");
+                        setTimeout(() => setStatusMessage(""), 2000);
+                      }
+                    }}
+                    title={address ? "Copy wallet address" : "Creating wallet"}
+                    className="text-left disabled:cursor-default"
+                  >
+                    <span className="hidden sm:inline text-xs font-mono text-[#EDE3D0]">
+                      {address
+                        ? `${address.slice(0, 6)}…${address.slice(-4)}`
+                        : "CREATING WALLET…"}
+                    </span>
+
+                    <span className="sm:hidden text-xs font-mono text-[#EDE3D0]">
+                      {address ? `${address.slice(0, 4)}…` : "CREATING…"}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
                     className="text-[#9C917E] hover:text-[#C4553D] text-xs transition"
                   >
                     disconnect
@@ -247,8 +358,12 @@ function App() {
                 </div>
               </div>
             )}
+
             {!authenticated && (
-              <button onClick={() => login()} className="btn-primary text-sm py-1.5 px-4">
+              <button
+                onClick={() => login()}
+                className="btn-primary text-sm py-1.5 px-4"
+              >
                 Connect
               </button>
             )}
@@ -262,18 +377,22 @@ function App() {
                 <div className="space-y-6">
                   <SplitForm />
                 </div>
+
                 <div className="space-y-6">
                   <GatewayStatus />
                   <RecentActivity onViewAll={() => setActiveTab("history")} />
                 </div>
               </div>
             )}
+
             {activeTab === "gateway" && <GatewayDashboard />}
             {activeTab === "history" && <History />}
           </>
         ) : (
           <div className="panel text-center py-16">
-            <p className="text-[#9C917E]">Connect your wallet to start splitting payments.</p>
+            <p className="text-[#9C917E]">
+              Connect your wallet to start splitting payments.
+            </p>
           </div>
         )}
       </div>
