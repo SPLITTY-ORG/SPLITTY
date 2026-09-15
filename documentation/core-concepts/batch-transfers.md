@@ -21,6 +21,14 @@ For Splitty, this means:
 
 Each recipient receives their allocation through the same batch transaction, while the transfers can still represent the original sender rather than the batching contract as the source.
 
+## Custom-token batch transfers
+
+Custom ERC-20 token batches use `SplittyBatcher`. This Splitty contract executes transfers for custom tokens only.
+
+Splitty routes a custom-token distribution to `SplittyBatcher` rather than the standard Multicall3From path. The contract is deployed on Arc Testnet at [`0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3`](https://testnet.arcscan.app/address/0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3).
+
+USDC batches continue to use Multicall3From. See [contract-addresses.md](../reference/contract-addresses.md "mention") for both execution contracts.
+
 ## Equal mode
 
 Enter a total amount and Splitty calculates an equal allocation across the current recipient set.
