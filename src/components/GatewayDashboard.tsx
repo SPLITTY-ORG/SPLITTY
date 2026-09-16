@@ -79,12 +79,11 @@ export function GatewayDashboard() {
   const [depositChain, setDepositChain] = useState<keyof typeof chainConfig>("arc");
   const [isDepositing, setIsDepositing] = useState(false);
   const [isFastDepositing, setIsFastDepositing] = useState(false);
+  const [isEstimatingFastDeposit, setIsEstimatingFastDeposit] = useState(false);
   const [fastDepositEstimate, setFastDepositEstimate] = useState<any>(null);
   const [fastDepositRouteId, setFastDepositRouteId] = useState(
     FAST_DEPOSIT_ROUTES[0].id
   );
-
-
 
   const [bridgeAmount, setBridgeAmount] = useState("0.1");
   const [bridgeSource, setBridgeSource] = useState<keyof typeof chainConfig>("baseSepolia");
@@ -133,14 +132,14 @@ export function GatewayDashboard() {
   const baseGateway = useGatewayBalance(chainConfig.baseSepolia.domainId);
   const ethGateway = useGatewayBalance(chainConfig.ethereumSepolia.domainId);
   const avalancheGateway = useGatewayBalance(chainConfig.avalancheFuji.domainId);
-    const polygonGateway = useGatewayBalance(chainConfig.polygonAmoy.domainId);
+  const polygonGateway = useGatewayBalance(chainConfig.polygonAmoy.domainId);
 
   const gatewayBalances = [
     { domain: chainConfig.arc.domainId, balance: arcGateway.data },
     { domain: chainConfig.baseSepolia.domainId, balance: baseGateway.data },
     { domain: chainConfig.ethereumSepolia.domainId, balance: ethGateway.data },
     { domain: chainConfig.avalancheFuji.domainId, balance: avalancheGateway.data },
-      { domain: chainConfig.polygonAmoy.domainId, balance: polygonGateway.data },
+    { domain: chainConfig.polygonAmoy.domainId, balance: polygonGateway.data },
   ];
 
   const sourceGatewayBalance = gatewayBalances.find(
@@ -154,70 +153,73 @@ export function GatewayDashboard() {
   const fastDepositSwitch = useChainSwitch(fastDepositRoute.sourceKey);
   const bridgeSwitch = useChainSwitch(bridgeSource);
 
-
   const handleEstimateFastDeposit = async () => {
-  if (!address) {
-    toastError("Connect wallet first");
-    return;
-  }
-
-  const amt = parseFloat(fastDepositAmount);
-  if (!amt || amt <= 0) {
-    toastError("Enter a valid amount");
-    return;
-  }
-
-  try {
-    const provider = await getActiveProvider();
-
-    if (!provider) {
-      toastError("Wallet provider not available");
+    play("click");
+    if (!address) {
+      toastError("Connect wallet first");
       return;
     }
 
-        const adapter = await createViemAdapterFromProvider({
-      provider,
-      getPublicClient: ({ chain }) =>
-        createPublicClient({
-          chain,
-          transport: http(
-            chain.id === chainConfig.ethereumSepolia.chainId
-              ? "https://" + "ethereum-sepolia-rpc.publicnode.com"
-              : chain.rpcUrls.default.http[0]
-          ),
-        }),
-    });
+    const amt = parseFloat(fastDepositAmount);
+    if (!amt || amt <= 0) {
+      toastError("Enter a valid amount");
+      return;
+    }
 
-    const kit = new UnifiedBalanceKit({
-      environment: "testnet",
-      adapter,
-    });
+    setIsEstimatingFastDeposit(true);
+    try {
+      const provider = await getActiveProvider();
 
-    const estimate = await kit.estimateDeposit({
-      from: {
+      if (!provider) {
+        toastError("Wallet provider not available");
+        return;
+      }
+
+      const adapter = await createViemAdapterFromProvider({
+        provider,
+        getPublicClient: ({ chain }) =>
+          createPublicClient({
+            chain,
+            transport: http(
+              chain.id === chainConfig.ethereumSepolia.chainId
+                ? "https://ethereum-sepolia-rpc.publicnode.com"
+                : chain.rpcUrls.default.http[0]
+            ),
+          }),
+      });
+
+      const kit = new UnifiedBalanceKit({
+        environment: "testnet",
         adapter,
-        chain: fastDepositRoute.sourceChain,
-      },
-      amount: fastDepositAmount,
-      token: "USDC",
-      to: {
-        chain: fastDepositRoute.destinationChain,
-      },
-      config: {
-        transferSpeed: "FAST",
-      },
-    });
+      });
 
-    setFastDepositEstimate(estimate);
-    toastSuccess("Fast Deposit estimate ready");
-  } catch (err: any) {
-    console.error("Fast Deposit estimate failed:", err);
-    toastError(err?.message || "Failed to estimate Fast Deposit");
-  }
-};
+      const estimate = await kit.estimateDeposit({
+        from: {
+          adapter,
+          chain: fastDepositRoute.sourceChain,
+        },
+        amount: fastDepositAmount,
+        token: "USDC",
+        to: {
+          chain: fastDepositRoute.destinationChain,
+        },
+        config: {
+          transferSpeed: "FAST",
+        },
+      });
 
+      setFastDepositEstimate(estimate);
+      toastSuccess("Fast Deposit estimate ready");
+    } catch (err: any) {
+      console.error("Fast Deposit estimate failed:", err);
+      toastError(err?.message || "Failed to estimate Fast Deposit");
+    } finally {
+      setIsEstimatingFastDeposit(false);
+    }
+  };
 
   const handleExecuteFastDeposit = async () => {
+    play("confirm");
     if (!address) {
       toastError("Connect wallet first");
       return;
@@ -237,14 +239,14 @@ export function GatewayDashboard() {
         throw new Error("Active wallet provider unavailable");
       }
 
-            const adapter = await createViemAdapterFromProvider({
+      const adapter = await createViemAdapterFromProvider({
         provider,
         getPublicClient: ({ chain }) =>
           createPublicClient({
             chain,
             transport: http(
               chain.id === chainConfig.ethereumSepolia.chainId
-                ? "https://" + "ethereum-sepolia-rpc.publicnode.com"
+                ? "https://ethereum-sepolia-rpc.publicnode.com"
                 : chain.rpcUrls.default.http[0]
             ),
           }),
@@ -318,19 +320,19 @@ export function GatewayDashboard() {
       }
 
       setTimeout(() => {
-    invalidateGateway(fastDestinationConfig.domainId);
-    invalidateGateway(fastSourceConfig.domainId);
-    invalidateWallet(
-      fastSourceConfig.chainId,
-      fastSourceConfig.usdcAddress
-    );
-    invalidateWallet(
-      fastDestinationConfig.chainId,
-      fastDestinationConfig.usdcAddress
-    );
-  }, 3000);
+        invalidateGateway(fastDestinationConfig.domainId);
+        invalidateGateway(fastSourceConfig.domainId);
+        invalidateWallet(
+          fastSourceConfig.chainId,
+          fastSourceConfig.usdcAddress
+        );
+        invalidateWallet(
+          fastDestinationConfig.chainId,
+          fastDestinationConfig.usdcAddress
+        );
+      }, 3000);
 
-  setFastDepositEstimate(null);
+      setFastDepositEstimate(null);
       setFastDepositAmount("");
     } catch (err: any) {
       toastError(err?.message || "Fast deposit failed");
@@ -340,6 +342,7 @@ export function GatewayDashboard() {
   };
 
   const handleDeposit = async () => {
+    play("confirm");
     if (!address) { toastError("Connect wallet first"); return; }
     const amt = parseFloat(depositAmount);
     if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
@@ -408,6 +411,7 @@ export function GatewayDashboard() {
   };
 
   const handleBridge = async () => {
+    play("confirm");
     if (!address) { toastError("Connect wallet first"); return; }
     const amt = parseFloat(bridgeAmount);
     if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
@@ -470,9 +474,9 @@ export function GatewayDashboard() {
           <div>
             <h3 className="text-sm font-semibold text-[#EDE3D0]">What is the Gateway?</h3>
             <p className="text-xs text-[#9C917E] mt-1 leading-relaxed">
-              The Gateway is like a <span className="text-[#F2B134]">unified wallet</span> that holds your USDC 
-              across multiple blockchains. You can <span className="text-[#F2B134]">deposit</span> USDC from other chains 
-              (like Base or Ethereum Sepolia) into your Gateway balance, then <span className="text-[#F2B134]">bridge</span> it to Arc 
+              The Gateway is like a <span className="text-[#F2B134]">unified wallet</span> that holds your USDC
+              across multiple blockchains. You can <span className="text-[#F2B134]">deposit</span> USDC from other chains
+              (like Base or Ethereum Sepolia) into your Gateway balance, then <span className="text-[#F2B134]">bridge</span> it to Arc
               instantly — all without paying high gas fees per transfer.
             </p>
             <p className="text-xs text-[#6B5F4F] mt-1">
@@ -496,7 +500,7 @@ export function GatewayDashboard() {
               baseGateway.refetch();
               ethGateway.refetch();
               avalancheGateway.refetch();
-               polygonGateway.refetch();
+              polygonGateway.refetch();
               play("click");
             }}
             className="text-xs text-[#F2B134] hover:underline"
@@ -520,161 +524,163 @@ export function GatewayDashboard() {
       </div>
 
       <div className="mb-5 sm:mb-6 bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-3 sm:p-4 min-w-0 overflow-visible">
-      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-        <div>
-          <h4 className="field-label text-sm">Gateway Deposit</h4>
-          <p className="text-xs text-[#6B5F4F] mt-1">
-            Choose how you want to fund your Unified Balance.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+          <div>
+            <h4 className="field-label text-sm">Gateway Deposit</h4>
+            <p className="text-xs text-[#6B5F4F] mt-1">
+              Choose how you want to fund your Unified Balance.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="relative mb-4 min-w-0" ref={depositRouteRef}>
-        <div className="text-[10px] uppercase tracking-wider text-[#6B5F4F] mb-1.5">
-          Deposit route
-        </div>
-        <button
-          type="button"
-          onClick={() => setDepositRouteOpen((open) => !open)}
-          aria-haspopup="listbox"
-          aria-expanded={depositRouteOpen}
-          className={`w-full min-w-0 flex items-center justify-between gap-2 sm:gap-3 bg-[#1D1712] border rounded px-3 py-3 text-sm transition ${depositRouteOpen ? "border-[rgba(242,177,52,0.42)]" : "border-[rgba(242,177,52,0.18)] hover:border-[rgba(242,177,52,0.35)]"}`}
-        >
-          <span className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-hidden">
-            {depositMode === "fast" ? (
-              <>
-                <span className="truncate min-w-0">{fastSourceConfig.label} → {fastDestinationConfig.label}</span>
-                <span className="flex items-center gap-1 text-[#F2B134] shrink-0">
-                  <Zap size={13} />
-                  <span className="text-xs">40x faster</span>
+        <div className="relative mb-4 min-w-0" ref={depositRouteRef}>
+          <div className="text-[10px] uppercase tracking-wider text-[#6B5F4F] mb-1.5">
+            Deposit route
+          </div>
+          <button
+            type="button"
+            onClick={() => { setDepositRouteOpen((open) => !open); play("click"); }}
+            aria-haspopup="listbox"
+            aria-expanded={depositRouteOpen}
+            className={`w-full min-w-0 flex items-center justify-between gap-2 sm:gap-3 bg-[#1D1712] border rounded px-3 py-3 text-sm transition ${depositRouteOpen ? "border-[rgba(242,177,52,0.42)]" : "border-[rgba(242,177,52,0.18)] hover:border-[rgba(242,177,52,0.35)]"}`}
+          >
+            <span className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-hidden">
+              {depositMode === "fast" ? (
+                <>
+                  <span className="truncate min-w-0">{fastSourceConfig.label} → {fastDestinationConfig.label}</span>
+                  <span className="flex items-center gap-1 text-[#F2B134] shrink-0">
+                    <Zap size={13} />
+                    <span className="text-xs">40x faster</span>
+                  </span>
+                </>
+              ) : (
+                <span className="truncate">
+                  {chainConfig[depositChain].label} → Gateway
                 </span>
-              </>
-            ) : (
-              <span className="truncate">
-                {chainConfig[depositChain].label} → Gateway
-              </span>
-            )}
-          </span>
+              )}
+            </span>
 
-          <span className="text-[#9C917E] shrink-0">
-            {depositRouteOpen ? "▲" : "▼"}
-          </span>
-        </button>
+            <span className="text-[#9C917E] shrink-0">
+              {depositRouteOpen ? "▲" : "▼"}
+            </span>
+          </button>
 
-        {depositRouteOpen && (
-          <div role="listbox" className="absolute z-30 left-0 right-0 mt-1 bg-[#1D1712] border border-[rgba(242,177,52,0.22)] rounded overflow-hidden shadow-xl max-h-[60vh] overflow-y-auto">
-            {CHAIN_KEYS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="option"
-                aria-selected={depositMode === "standard" && depositChain === key}
-                onClick={() => {
-                  setDepositMode("standard");
-                  setDepositChain(key);
-                  setFastDepositEstimate(null);
-                  setDepositRouteOpen(false);
-                }}
-                className={`w-full flex items-center justify-between gap-2 px-3 py-3 sm:py-2.5 text-left text-sm transition hover:bg-[#2F241A] ${
-                  depositMode === "standard" && depositChain === key
-                    ? "text-[#F2B134]"
-                    : "text-[#EDE3D0]"
-                }`}
-              >
-                <span>{chainConfig[key].label} → Gateway</span>
-                <span className="text-xs text-[#6B5F4F]">standard</span>
-              </button>
-            ))}
-
-            <div className="border-t border-[rgba(242,177,52,0.10)]" />
-
-          <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-[#6B5F4F]">
-            Fast Deposit
-          </div>
-
-          {FAST_DEPOSIT_ROUTES.map((route) => (
-            <button
-              key={route.id}
-              type="button"
-              role="option"
-              aria-selected={depositMode === "fast" && fastDepositRouteId === route.id}
-              onClick={() => {
-                setDepositMode("fast");
-                setFastDepositRouteId(route.id);
-                setFastDepositEstimate(null);
-                setDepositRouteOpen(false);
-              }}
-              className={`w-full flex items-center justify-between gap-2 sm:gap-3 px-3 py-3 sm:py-2.5 text-left text-sm transition hover:bg-[#2F241A] ${
-                depositMode === "fast" && fastDepositRouteId === route.id
-                  ? "text-[#F2B134]"
-                  : "text-[#EDE3D0]"
-              }`}
-            >
-              <span className="truncate">{route.label}</span>
-              <span className="flex items-center gap-1 text-[#F2B134] text-xs shrink-0">
-                <Zap size={13} />
-                40x
-              </span>
-            </button>
-          ))}
-          </div>
-        )}
-      </div>
-
-      {depositMode === "fast" ? (
-        <>
-          {fastDepositSwitch.isMismatched && (
-            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-              <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">
-                Switch to {fastSourceConfig.label} to continue.
-              </span>
-              <button
-                onClick={fastDepositSwitch.switchChain}
-                disabled={fastDepositSwitch.isSwitching}
-                className="btn-primary text-sm py-2 px-3 w-full sm:w-auto shrink-0"
-              >
-                {fastDepositSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
-              </button>
-            </div>
-          )}
-
-          {fastDepositSwitch.error && (
-            <div className="text-[#C4553D] text-xs mb-2">
-              {fastDepositSwitch.error}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-3 min-w-0">
-            <div className="flex flex-col sm:flex-row gap-2 min-w-0">
-
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Amount"
-                value={fastDepositAmount}
-                onChange={(e) => {
-                setFastDepositAmount(e.target.value);
-                setFastDepositEstimate(null);
-              }}
-                className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
-              />
-            </div>
-
-            <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
-              {["0.1", "0.5", "1", "5", "10"].map((preset) => (
+          {depositRouteOpen && (
+            <div role="listbox" className="absolute z-30 left-0 right-0 mt-1 bg-[#1D1712] border border-[rgba(242,177,52,0.22)] rounded overflow-hidden shadow-xl max-h-[60vh] overflow-y-auto">
+              {CHAIN_KEYS.map((key) => (
                 <button
-                  key={preset}
+                  key={key}
+                  type="button"
+                  role="option"
+                  aria-selected={depositMode === "standard" && depositChain === key}
                   onClick={() => {
-                  setFastDepositAmount(preset);
-                  setFastDepositEstimate(null);
-                }}
-                  className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                    setDepositMode("standard");
+                    setDepositChain(key);
+                    setFastDepositEstimate(null);
+                    setDepositRouteOpen(false);
+                    play("tab");
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-3 sm:py-2.5 text-left text-sm transition hover:bg-[#2F241A] ${
+                    depositMode === "standard" && depositChain === key
+                      ? "text-[#F2B134]"
+                      : "text-[#EDE3D0]"
+                  }`}
                 >
-                  {preset}
+                  <span>{chainConfig[key].label} → Gateway</span>
+                  <span className="text-xs text-[#6B5F4F]">standard</span>
+                </button>
+              ))}
+
+              <div className="border-t border-[rgba(242,177,52,0.10)]" />
+
+              <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-[#6B5F4F]">
+                Fast Deposit
+              </div>
+
+              {FAST_DEPOSIT_ROUTES.map((route) => (
+                <button
+                  key={route.id}
+                  type="button"
+                  role="option"
+                  aria-selected={depositMode === "fast" && fastDepositRouteId === route.id}
+                  onClick={() => {
+                    setDepositMode("fast");
+                    setFastDepositRouteId(route.id);
+                    setFastDepositEstimate(null);
+                    setDepositRouteOpen(false);
+                    play("tab");
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 sm:gap-3 px-3 py-3 sm:py-2.5 text-left text-sm transition hover:bg-[#2F241A] ${
+                    depositMode === "fast" && fastDepositRouteId === route.id
+                      ? "text-[#F2B134]"
+                      : "text-[#EDE3D0]"
+                  }`}
+                >
+                  <span className="truncate">{route.label}</span>
+                  <span className="flex items-center gap-1 text-[#F2B134] text-xs shrink-0">
+                    <Zap size={13} />
+                    40x
+                  </span>
                 </button>
               ))}
             </div>
+          )}
+        </div>
+
+        {depositMode === "fast" ? (
+          <>
+            {fastDepositSwitch.isMismatched && (
+              <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">
+                  Switch to {fastSourceConfig.label} to continue.
+                </span>
+                <button
+                  onClick={() => { play("confirm"); fastDepositSwitch.switchChain(); }}
+                  disabled={fastDepositSwitch.isSwitching}
+                  className="btn-primary text-sm py-2 px-3 w-full sm:w-auto shrink-0"
+                >
+                  {fastDepositSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
+                </button>
+              </div>
+            )}
+
+            {fastDepositSwitch.error && (
+              <div className="text-[#C4553D] text-xs mb-2">
+                {fastDepositSwitch.error}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 min-w-0">
+              <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Amount"
+                  value={fastDepositAmount}
+                  onChange={(e) => {
+                    setFastDepositAmount(e.target.value);
+                    setFastDepositEstimate(null);
+                  }}
+                  className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
+                />
+              </div>
+
+              <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
+                {["0.1", "0.5", "1", "5", "10"].map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => {
+                      setFastDepositAmount(preset);
+                      setFastDepositEstimate(null);
+                      play("step");
+                    }}
+                    className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
 
               {fastDepositEstimate && (
                 <>
@@ -697,7 +703,7 @@ export function GatewayDashboard() {
 
                   <button
                     type="button"
-                    onClick={() => setFastDepositEstimate(null)}
+                    onClick={() => { setFastDepositEstimate(null); play("click"); }}
                     disabled={isFastDepositing}
                     className="w-full text-xs text-[#6B5F4F] hover:text-[#EDE3D0] transition py-1"
                   >
@@ -716,13 +722,18 @@ export function GatewayDashboard() {
                   fastDepositSwitch.isMismatched ||
                   fastDepositSwitch.isSwitching ||
                   isFastDepositing ||
+                  isEstimatingFastDeposit ||
                   !address ||
                   !fastDepositAmount
                 }
-                className="btn-primary w-full flex items-center justify-center gap-2"
+                className={`btn-primary w-full flex items-center justify-center gap-2 ${
+                  isEstimatingFastDeposit ? "opacity-40 cursor-not-allowed" : ""
+                }`}
               >
                 {isFastDepositing ? (
                   "Processing…"
+                ) : isEstimatingFastDeposit ? (
+                  "Reviewing…"
                 ) : fastDepositEstimate ? (
                   <>
                     <Zap size={14} />
@@ -768,150 +779,147 @@ export function GatewayDashboard() {
                   USDC will be deposited into your unified Gateway balance.
                 </div>
               </div>
-
             </div>
           </>
-      ) : (
-        <div className="">
-
-          <h4 className="field-label text-sm mb-3 leading-relaxed">Deposit USDC to Gateway</h4>
-          {depositSwitch.isMismatched && (
-            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-              <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">Switch to {depositSwitch.targetChain.label} to continue.</span>
-              <button
-                onClick={depositSwitch.switchChain}
-                disabled={depositSwitch.isSwitching}
-                className="btn-primary text-sm py-2 px-3 w-full sm:w-auto shrink-0"
-              >
-                {depositSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
-              </button>
-            </div>
-          )}
-          {depositSwitch.error && <div className="text-[#C4553D] text-xs mb-2">{depositSwitch.error}</div>}
-          <div className="flex flex-col gap-3 min-w-0">
-            <div className="flex flex-col sm:flex-row gap-2 min-w-0">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Amount"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
-              />
-            </div>
-            <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
-              {["0.1", "0.5", "1", "5", "10"].map((preset) => (
+        ) : (
+          <div className="">
+            <h4 className="field-label text-sm mb-3 leading-relaxed">Deposit USDC to Gateway</h4>
+            {depositSwitch.isMismatched && (
+              <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">Switch to {depositSwitch.targetChain.label} to continue.</span>
                 <button
-                  key={preset}
-                  onClick={() => setDepositAmount(preset)}
-                  className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                  onClick={() => { play("confirm"); depositSwitch.switchChain(); }}
+                  disabled={depositSwitch.isSwitching}
+                  className="btn-primary text-sm py-2 px-3 w-full sm:w-auto shrink-0"
                 >
-                  {preset}
+                  {depositSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
                 </button>
-              ))}
-            </div>
-            <button
-              onClick={handleDeposit}
-              disabled={depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address}
-              className={`btn-primary w-full inline-flex items-center justify-center gap-1.5 ${(depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
-            >
-              {isDepositing ? "Depositing…" : (
-                <>
-                  <ArrowDownToLine size={14} />
-                  Deposit to Gateway
-                </>
-              )}
-            </button>
-            <div className="text-xs text-[#9C917E] space-y-1 break-words leading-relaxed">
-              {depositBalanceRaw && (
-                <div>Balance: <span className="data-value">{parseFloat(formatUnits(BigInt(depositBalanceRaw), USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
-              )}
-              {allowanceRaw !== null && allowanceRaw !== undefined && (
-                <div>Allowance: <span className="data-value">{parseFloat(formatUnits(allowanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC</div>
-              )}
-              <div className="helper-text">USDC will be deposited into your unified Gateway balance.</div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-
-
-        <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-3 sm:p-4 min-w-0 overflow-hidden">
-          <h4 className="field-label text-sm mb-3 leading-relaxed break-words">INSTANT USDC BRIDGE TO ARC VIA GATEWAY BALANCE</h4>
-          <p className="text-xs text-[#9C917E] mb-3 leading-relaxed">
-            Move USDC from your Gateway balance to Arc — instant and gas‑efficient.
-          </p>
-          {bridgeSwitch.isMismatched && (
-            <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-              <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">Switch to {bridgeSwitch.targetChain.label} to continue.</span>
-              <button
-                onClick={bridgeSwitch.switchChain}
-                disabled={bridgeSwitch.isSwitching}
-                className="btn-primary text-sm py-2 px-3 w-full sm:w-auto shrink-0"
-              >
-                {bridgeSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
-              </button>
-            </div>
-          )}
-          {bridgeSwitch.error && <div className="text-[#C4553D] text-xs mb-2">{bridgeSwitch.error}</div>}
-          <div className="flex flex-col gap-3 min-w-0">
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center min-w-0">
-              <select
-                value={bridgeSource}
-                onChange={(e) => setBridgeSource(e.target.value as keyof typeof chainConfig)}
-                className="flex-1 select text-sm"
-              >
-                {BRIDGE_SOURCE_CHAIN_KEYS.map((key) => (
-                  <option key={key} value={key}>{chainConfig[key].label}</option>
-                ))}
-              </select>
-              <span className="text-[#9C917E] text-sm shrink-0">→ Arc</span>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 min-w-0">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Amount"
-                value={bridgeAmount}
-                onChange={(e) => setBridgeAmount(e.target.value)}
-                className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
-              />
-              <span className="text-[#9C917E] text-sm self-center">USDC</span>
-            </div>
-            <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
-              {["0.1", "0.5", "1", "5", "10"].map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => setBridgeAmount(preset)}
-                  className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-            {sourceGatewayBalance && (
-              <div className="text-xs text-[#9C917E]">Gateway balance: <span className="data-value">{getDisplayBalance(sourceGatewayBalance.balance)}</span> USDC on {bridgeSourceConfig.label}</div>
+              </div>
             )}
-            <button
-              onClick={handleBridge}
-              disabled={bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address}
-              className={`btn-secondary w-full inline-flex items-center justify-center gap-1.5 ${(bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
-            >
-              {isBridging ? "Bridging…" : (
-                <>
-                  <ArrowRightLeft size={14} />
-                  Bridge
-                </>
-              )}
-            </button>
-            <div className="helper-text text-xs leading-relaxed break-words">
-              This will burn the entered amount from your Gateway balance on the selected chain, then mint it on Arc using Circle's Forwarding Service.
+            {depositSwitch.error && <div className="text-[#C4553D] text-xs mb-2">{depositSwitch.error}</div>}
+            <div className="flex flex-col gap-3 min-w-0">
+              <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Amount"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
+                />
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
+                {["0.1", "0.5", "1", "5", "10"].map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => { setDepositAmount(preset); play("step"); }}
+                    className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleDeposit}
+                disabled={depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address}
+                className={`btn-primary w-full inline-flex items-center justify-center gap-1.5 ${(depositSwitch.isMismatched || depositSwitch.isSwitching || isDepositing || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
+              >
+                {isDepositing ? "Depositing…" : (
+                  <>
+                    <ArrowDownToLine size={14} />
+                    Deposit to Gateway
+                  </>
+                )}
+              </button>
+              <div className="text-xs text-[#9C917E] space-y-1 break-words leading-relaxed">
+                {depositBalanceRaw && (
+                  <div>Balance: <span className="data-value">{parseFloat(formatUnits(BigInt(depositBalanceRaw), USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
+                )}
+                {allowanceRaw !== null && allowanceRaw !== undefined && (
+                  <div>Allowance: <span className="data-value">{parseFloat(formatUnits(allowanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC</div>
+                )}
+                <div className="helper-text">USDC will be deposited into your unified Gateway balance.</div>
+              </div>
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-3 sm:p-4 min-w-0 overflow-hidden">
+        <h4 className="field-label text-sm mb-3 leading-relaxed break-words">INSTANT USDC BRIDGE TO ARC VIA GATEWAY BALANCE</h4>
+        <p className="text-xs text-[#9C917E] mb-3 leading-relaxed">
+          Move USDC from your Gateway balance to Arc — instant and gas‑efficient.
+        </p>
+        {bridgeSwitch.isMismatched && (
+          <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+            <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">Switch to {bridgeSwitch.targetChain.label} to continue.</span>
+            <button
+              onClick={() => { play("confirm"); bridgeSwitch.switchChain(); }}
+              disabled={bridgeSwitch.isSwitching}
+              className="btn-primary text-sm py-2 px-3 w-full sm:w-auto shrink-0"
+            >
+              {bridgeSwitch.isSwitching ? "Confirm in wallet…" : "Switch Network"}
+            </button>
+          </div>
+        )}
+        {bridgeSwitch.error && <div className="text-[#C4553D] text-xs mb-2">{bridgeSwitch.error}</div>}
+        <div className="flex flex-col gap-3 min-w-0">
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center min-w-0">
+            <select
+              value={bridgeSource}
+              onChange={(e) => setBridgeSource(e.target.value as keyof typeof chainConfig)}
+              className="flex-1 select text-sm"
+            >
+              {BRIDGE_SOURCE_CHAIN_KEYS.map((key) => (
+                <option key={key} value={key}>{chainConfig[key].label}</option>
+              ))}
+            </select>
+            <span className="text-[#9C917E] text-sm shrink-0">→ Arc</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Amount"
+              value={bridgeAmount}
+              onChange={(e) => setBridgeAmount(e.target.value)}
+              className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
+            />
+            <span className="text-[#9C917E] text-sm self-center">USDC</span>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
+            {["0.1", "0.5", "1", "5", "10"].map((preset) => (
+              <button
+                key={preset}
+                onClick={() => { setBridgeAmount(preset); play("step"); }}
+                className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+          {sourceGatewayBalance && (
+            <div className="text-xs text-[#9C917E]">Gateway balance: <span className="data-value">{getDisplayBalance(sourceGatewayBalance.balance)}</span> USDC on {bridgeSourceConfig.label}</div>
+          )}
+          <button
+            onClick={handleBridge}
+            disabled={bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address}
+            className={`btn-secondary w-full inline-flex items-center justify-center gap-1.5 ${(bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
+          >
+            {isBridging ? "Bridging…" : (
+              <>
+                <ArrowRightLeft size={14} />
+                Bridge
+              </>
+            )}
+          </button>
+          <div className="helper-text text-xs leading-relaxed break-words">
+            This will burn the entered amount from your Gateway balance on the selected chain, then mint it on Arc using Circle's Forwarding Service.
+          </div>
         </div>
+      </div>
     </div>
   );
 }
