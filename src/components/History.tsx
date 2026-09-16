@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ArrowDownToLine, ArrowRightLeft, Split, Copy, Check, RotateCw, Zap } from "lucide-react";
+import { ArrowDownToLine, ArrowRightLeft, Split, Copy, Check, RotateCw, Zap, ArrowRight } from "lucide-react";
 import { useAccount } from "wagmi";
 import { supabase } from "../lib/supabase";
 import { relativeTime, truncateHash } from "../lib/formatTime";
@@ -80,7 +80,7 @@ function RowSummary({ record }: { record: TxRecord }) {
     return (
       <p className="text-sm text-[#EDE3D0]">
         <span className="font-medium">{amount} USDC</span>{" "}
-        fast deposited <span className="text-[#9C917E]">{source} → {dest}</span>
+        fast deposited <span className="text-[#9C917E] inline-flex items-center gap-1">{source} <ArrowRight size={11} /> {dest}</span>
         {status && status !== "DONE" && (
           <span className="ml-2 text-xs font-mono text-[#9C917E]">({status})</span>
         )}
@@ -93,7 +93,7 @@ function RowSummary({ record }: { record: TxRecord }) {
     return (
       <p className="text-sm text-[#EDE3D0]">
         <span className="font-medium">{amount.toFixed(2)} USDC</span>{" "}
-        bridged <span className="text-[#9C917E]">{source} → Arc</span>
+        bridged <span className="text-[#9C917E] inline-flex items-center gap-1">{source} <ArrowRight size={11} /> Arc</span>
       </p>
     );
   }
@@ -106,7 +106,12 @@ function RowSummary({ record }: { record: TxRecord }) {
     : 0;
   const total = safeAmount(data?.totalAmount);
   const symbol = data?.token?.symbol || "USDC";
-  const funding = data?.fundingSource || "native";
+  const fundingRaw = data?.fundingSource || "native";
+  const funding =
+    fundingRaw === "unified" ? "GATEWAY BALANCE" :
+    fundingRaw === "hybrid"  ? "NATIVE/GATEWAY" :
+    fundingRaw === "wallet"  ? "WALLET" :
+    fundingRaw.toUpperCase();
   return (
     <p className="text-sm text-[#EDE3D0]">
       <span className="font-medium">{recipients} recipient{recipients !== 1 ? "s" : ""}</span>{" "}
@@ -157,7 +162,21 @@ export function History() {
   useEffect(() => {
     setLoading(true);
     fetchHistory();
-  }, [fetchHistory]);
+
+    if (!address) return;
+
+    // Realtime: new inserts appear instantly without manual refresh
+    const channel = supabase
+      .channel(`history-${address}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "transaction_history", filter: `wallet_address=eq.${address}` },
+        () => { fetchHistory(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchHistory, address]);
 
   const handleRefresh = () => {
     setRefreshing(true);

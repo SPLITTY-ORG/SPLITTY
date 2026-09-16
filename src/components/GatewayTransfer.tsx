@@ -4,6 +4,7 @@ import { parseUnits, pad, zeroAddress, type Hex } from "viem";
 import toast from "react-hot-toast";
 import { GATEWAY_WALLET_ADDRESS, GATEWAY_MINTER_ADDRESS, GATEWAY_API_BASE, chainConfig, CHAIN_KEYS } from "../config/gateway";
 import { useGatewayBalance } from "../hooks/useGatewayBalance";
+import { ArrowRight } from "lucide-react";
 
 function stringifyWithBigInts(obj: any): string {
   return JSON.stringify(obj, (key, value) => {
@@ -220,7 +221,7 @@ export function GatewayTransfer() {
             </option>
           ))}
         </select>
-        <span className="text-graphite text-sm">→</span>
+        <ArrowRight size={14} className="text-graphite shrink-0" />
         <span className="text-sm font-mono font-bold text-ledger-green">Arc</span>
         <div className="flex-1 min-w-[100px]">
           <input

@@ -20,6 +20,8 @@ import {
   Wallet,
   Waypoints,
   Zap,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 type Tab = "split" | "gateway" | "history";
@@ -353,7 +355,7 @@ function App() {
                   className="text-[#9C917E] hover:text-[#EDE3D0] text-sm transition"
                   title={muted ? "Unmute" : "Mute"}
                 >
-                  {muted ? "✕" : "♪"}
+                  {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
                 </button>
 
                 <div className="flex items-center gap-2 bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded-full px-3 py-1.5">
@@ -412,7 +414,7 @@ function App() {
             {activeTab === "split" && (
               <div className="app-grid">
                 <div className="space-y-6">
-                  <SplitForm />
+                  <SplitForm onGoToFundGateway={() => setActiveTab("gateway")} />
                 </div>
 
                 <div className="space-y-6">

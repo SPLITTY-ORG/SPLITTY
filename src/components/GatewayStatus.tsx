@@ -1,6 +1,7 @@
 import { useGatewayBalance } from "../hooks/useBalances";
 import { chainConfig } from "../config/gateway";
 import { useInvalidateBalances } from "../hooks/useBalances";
+import { RefreshCw } from "lucide-react";
 
 export function GatewayStatus() {
   const { invalidateGateway } = useInvalidateBalances();
@@ -28,7 +29,7 @@ export function GatewayStatus() {
       <div className="flex justify-between items-center mb-2">
         <span className="terminal-label text-xs">GATEWAY</span>
         <button onClick={refresh} className="text-[#9C917E] hover:text-[#EDE3D0] text-xs transition">
-          ↻ refresh
+          <RefreshCw size={12} className="inline-block mr-1" /> refresh
         </button>
       </div>
       <div className="space-y-1 text-sm font-mono">

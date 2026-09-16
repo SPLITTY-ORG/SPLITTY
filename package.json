@@ -25,6 +25,7 @@
     "@tanstack/react-query": "^5.102.8",
     "@wagmi/connectors": "^8.2.0",
     "@wagmi/core": "^3.6.5",
+    "@web3icons/react": "^4.1.22",
     "csv-parse": "^7.0.2",
     "lucide-react": "^1.40.0",
     "react": "^19.2.8",
