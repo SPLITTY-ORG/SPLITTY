@@ -16,15 +16,13 @@ import {
 } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
-import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb, RefreshCw, ChevronUp, ChevronDown, ArrowRight, ShieldCheck, LoaderCircle } from "lucide-react";
+import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb, RefreshCw, ChevronUp, ChevronDown, ArrowRight, LoaderCircle } from "lucide-react";
 import { ChainIcon } from "./ChainIcon";
 import { UnifiedBalanceKit } from "@circle-fin/unified-balance-kit";
 import { createViemAdapterFromProvider } from "@circle-fin/adapter-viem-v2";
 
 const USDC_DECIMALS = 6;
-// TokenMessengerWithFees contract — testnet address (same across all EVM chains in testnet env).
-// Used for pre-approving USDC so fast deposits skip the in-flight approval wait.
-const TOKEN_MESSENGER_WITH_FEES = "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A" as const;
+
 const GATEWAY_WALLET_ABI = [
   {
     type: "function",
@@ -93,8 +91,8 @@ export function GatewayDashboard() {
   const [bridgeSource, setBridgeSource] = useState<keyof typeof chainConfig>("baseSepolia");
   const [isBridging, setIsBridging] = useState(false);
 
-  const [isPreApproving, setIsPreApproving] = useState(false);
-  const [approveTxHash, setApproveTxHash] = useState<Hash | undefined>(undefined);
+
+
 
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
@@ -167,67 +165,8 @@ export function GatewayDashboard() {
     return await createViemAdapterFromProvider({ provider });
   };
 
-  // Pre-approve TokenMessengerWithFees with max uint256 so future fast deposits
-  // skip the in-flight approval wait (per Arc docs).
-  const handlePreApprove = async () => {
-    play("confirm");
-    if (!address) { toastError("Connect wallet first"); return; }
-    setIsPreApproving(true);
-    const approveToast = toastLoading(`Approving USDC on ${fastSourceConfig.label} for fast deposits...`);
-    try {
-      const adapter = await getAdapter();
-      const maxUint256 = 2n ** 256n - 1n;
-      const approval = await adapter.prepareAction(
-        "usdc.approve",
-        { amount: maxUint256, delegate: TOKEN_MESSENGER_WITH_FEES },
-        { chain: fastDepositRoute.sourceChain },
-      );
-      const txHash: string = await approval.execute();
-      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
-        throw new Error("Invalid approval transaction hash");
-      }
-      setApproveTxHash(txHash as Hash);
-      toast.dismiss(approveToast);
-      toastInfo("Approval submitted — waiting for confirmation...");
-      const receipt = await adapter.waitForTransaction(txHash, { timeout: 60_000 }, fastDepositRoute.sourceChain);
-      if (receipt.status !== "success") throw new Error("Approval transaction reverted");
-      toast.dismiss();
-      toastSuccess("Pre-approval confirmed! Future fast deposits will skip the approval wait.");
-      play("success");
-    } catch (err: any) {
-      toast.dismiss(approveToast);
-      const isRejected = /user rejected|user denied|user cancelled/i.test(err?.message || "");
-      if (isRejected) toastInfo("Approval cancelled");
-      else toastError(err?.message || "Pre-approval failed");
-    } finally {
-      setIsPreApproving(false);
-    }
-  };
 
-  const handleEstimateFastDeposit = async () => {
-    play("click");
-    if (!address) { toastError("Connect wallet first"); return; }
-    const amt = parseFloat(fastDepositAmount);
-    if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
-    setIsEstimatingFastDeposit(true);
-    const estimateToast = toastLoading("Estimating fast deposit...");
-    try {
-      const adapter = await getAdapter();
-      const estimate = await kit.unifiedBalance.estimateDeposit({
-        from: { adapter, chain: fastDepositRoute.sourceChain },
-        amount: fastDepositAmount,
-        token: "USDC",
-      });
-      toast.dismiss(estimateToast);
-      setFastDepositEstimate(estimate);
-      toastInfo(`Estimated fees ready — review and confirm.`);
-    } catch (err: any) {
-      toast.dismiss(estimateToast);
-      toastError(err?.message ?? "Estimate failed");
-    } finally {
-      setIsEstimatingFastDeposit(false);
-    }
-  };
+
 
   const handleFastDeposit = async () => {
     play("confirm");
@@ -326,6 +265,7 @@ export function GatewayDashboard() {
     }
   };
 
+  const handleEstimateFastDeposit = handleFastDeposit;
   const handleExecuteFastDeposit = handleFastDeposit;
 
   const handleDeposit = async () => {
@@ -778,35 +718,7 @@ export function GatewayDashboard() {
                 )}
               </button>
 
-              {/* Pre-approve allowance — removes the in-flight approval wait from future deposits */}
-              <div className="border-t border-[rgba(242,177,52,0.10)] pt-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <ShieldCheck size={14} className="text-[#F2B134] shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-[#EDE3D0] font-medium">Pre-approve allowance</p>
-                    <p className="text-xs text-[#6B5F4F] leading-relaxed mt-0.5">
-                      Set a max USDC allowance once so future fast deposits skip the approval step and execute faster.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handlePreApprove}
-                  disabled={isPreApproving || fastDepositSwitch.isMismatched || !address}
-                  className={`w-full inline-flex items-center justify-center gap-1.5 text-sm py-2 px-3 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition ${isPreApproving || fastDepositSwitch.isMismatched || !address ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  {isPreApproving ? (
-                    <><LoaderCircle size={14} className="animate-spin" /> Approving…</>
-                  ) : (
-                    <><ShieldCheck size={14} /> Pre-approve USDC allowance</>
-                  )}
-                </button>
-                {approveTxHash && (
-                  <p className="text-[10px] text-[#6B5F4F] mt-1 font-mono truncate">
-                    Approval tx: {approveTxHash.slice(0, 10)}…{approveTxHash.slice(-6)}
-                  </p>
-                )}
-              </div>
+
 
               <div className="mt-2 text-xs text-[#6B5F4F] space-y-1 break-words leading-relaxed">
                 <div>
