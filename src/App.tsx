@@ -85,6 +85,7 @@ function App() {
   const { play, muted, toggleMute } = useSound();
   const [activeTab, setActiveTab] = useState<Tab>("split");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [, setStatusMessage] = useState("");
 
   const { arcWallet, arcGateway, baseGateway, ethGateway, isLoading } =
     useAllBalances();

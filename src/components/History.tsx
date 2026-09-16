@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ArrowDownToLine, ArrowRightLeft, Split, Copy, Check, RotateCw } from "lucide-react";
+import { ArrowDownToLine, ArrowRightLeft, Split, Copy, Check, RotateCw, Zap } from "lucide-react";
 import { useAccount } from "wagmi";
 import { supabase } from "../lib/supabase";
 import { relativeTime, truncateHash } from "../lib/formatTime";
 
-type EventType = "gateway_deposit" | "bridge_to_arc" | "batch_split";
+type EventType = "gateway_deposit" | "gateway_fast_deposit" | "bridge_to_arc" | "batch_split";
 
 interface TxRecord {
   id: string;
@@ -20,6 +20,7 @@ const EVENT_META: Record<
   { label: string; icon: React.ElementType; accent: string; bg: string }
 > = {
   gateway_deposit: { label: "Deposit", icon: ArrowDownToLine, accent: "#378ADD", bg: "rgba(55,138,221,0.1)" },
+  gateway_fast_deposit: { label: "Fast Deposit", icon: Zap, accent: "#4ADE80", bg: "rgba(74,222,128,0.1)" },
   bridge_to_arc: { label: "Bridge", icon: ArrowRightLeft, accent: "#a985e0", bg: "rgba(169,133,224,0.1)" },
   batch_split: { label: "Split", icon: Split, accent: "#f2b134", bg: "rgba(242,177,52,0.1)" },
 };
@@ -68,6 +69,21 @@ function RowSummary({ record }: { record: TxRecord }) {
       <p className="text-sm text-[#EDE3D0]">
         <span className="font-medium">{amount.toFixed(2)} USDC</span>{" "}
         deposited from <span className="text-[#9C917E]">{source}</span>
+      </p>
+    );
+  }
+  if (event_type === "gateway_fast_deposit") {
+    const amount = safeAmount(data?.amount);
+    const source = data?.sourceChain || "Unknown chain";
+    const dest = data?.destinationChain || "Arc";
+    const status = data?.status;
+    return (
+      <p className="text-sm text-[#EDE3D0]">
+        <span className="font-medium">{amount} USDC</span>{" "}
+        fast deposited <span className="text-[#9C917E]">{source} → {dest}</span>
+        {status && status !== "DONE" && (
+          <span className="ml-2 text-xs font-mono text-[#9C917E]">({status})</span>
+        )}
       </p>
     );
   }
