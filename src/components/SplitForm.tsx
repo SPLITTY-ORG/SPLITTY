@@ -2196,7 +2196,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                 )}
                 <div className="flex justify-between text-sm mt-2">
                   <span className="field-label">Execution</span>
-                  <span className="data-value">Multicall3From</span>
+                  <span className="data-value">{isCustomToken ? "SplittyBatcher" : "Multicall3From"}</span>
                 </div>
                 <div className="flex justify-between text-sm mt-2">
                   <span className="field-label">Network</span>
