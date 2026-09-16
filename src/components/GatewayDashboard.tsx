@@ -204,6 +204,31 @@ export function GatewayDashboard() {
     }
   };
 
+  const handleEstimateFastDeposit = async () => {
+    play("click");
+    if (!address) { toastError("Connect wallet first"); return; }
+    const amt = parseFloat(fastDepositAmount);
+    if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
+    setIsEstimatingFastDeposit(true);
+    const estimateToast = toastLoading("Estimating fast deposit...");
+    try {
+      const adapter = await getAdapter();
+      const estimate = await kit.unifiedBalance.estimateDeposit({
+        from: { adapter, chain: fastDepositRoute.sourceChain },
+        amount: fastDepositAmount,
+        token: "USDC",
+      });
+      toast.dismiss(estimateToast);
+      setFastDepositEstimate(estimate);
+      toastInfo(`Estimated fees ready — review and confirm.`);
+    } catch (err: any) {
+      toast.dismiss(estimateToast);
+      toastError(err?.message ?? "Estimate failed");
+    } finally {
+      setIsEstimatingFastDeposit(false);
+    }
+  };
+
   const handleFastDeposit = async () => {
     play("confirm");
     if (!address) { toastError("Connect wallet first"); return; }
@@ -300,6 +325,8 @@ export function GatewayDashboard() {
       setIsFastDepositing(false);
     }
   };
+
+  const handleExecuteFastDeposit = handleFastDeposit;
 
   const handleDeposit = async () => {
     play("confirm");
