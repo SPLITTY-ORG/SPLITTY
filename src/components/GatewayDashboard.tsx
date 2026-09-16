@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { useAccount, useSwitchChain, useWriteContract, useReadContract, useSignTypedData, useConfig } from "wagmi";
-import { formatUnits, erc20Abi, parseUnits, createPublicClient, http } from "viem";
+import { useAccount, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSignTypedData, useConfig } from "wagmi";
+import { formatUnits, erc20Abi, parseUnits, createPublicClient, http, type Hash } from "viem";
 import toast from "react-hot-toast";
 import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { useGatewayBalance, useWalletBalance, useInvalidateBalances } from "../hooks/useBalances";
@@ -16,11 +16,15 @@ import {
 } from "../config/gateway";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
-import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb } from "lucide-react";
+import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb, RefreshCw, ChevronUp, ChevronDown, ArrowRight, ShieldCheck, LoaderCircle } from "lucide-react";
+import { ChainIcon } from "./ChainIcon";
 import { UnifiedBalanceKit } from "@circle-fin/unified-balance-kit";
 import { createViemAdapterFromProvider } from "@circle-fin/adapter-viem-v2";
 
 const USDC_DECIMALS = 6;
+// TokenMessengerWithFees contract — testnet address (same across all EVM chains in testnet env).
+// Used for pre-approving USDC so fast deposits skip the in-flight approval wait.
+const TOKEN_MESSENGER_WITH_FEES = "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A" as const;
 const GATEWAY_WALLET_ABI = [
   {
     type: "function",
@@ -89,6 +93,9 @@ export function GatewayDashboard() {
   const [bridgeSource, setBridgeSource] = useState<keyof typeof chainConfig>("baseSepolia");
   const [isBridging, setIsBridging] = useState(false);
 
+  const [isPreApproving, setIsPreApproving] = useState(false);
+  const [approveTxHash, setApproveTxHash] = useState<Hash | undefined>(undefined);
+
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
 
@@ -153,6 +160,61 @@ export function GatewayDashboard() {
   const fastDepositSwitch = useChainSwitch(fastDepositRoute.sourceKey);
   const bridgeSwitch = useChainSwitch(bridgeSource);
 
+  // Shared adapter factory — avoids duplicating 12 lines in every handler.
+  const getAdapter = async () => {
+    const provider = await getActiveProvider();
+    if (!provider) throw new Error("Wallet provider not available");
+    return createViemAdapterFromProvider({
+      provider,
+      getPublicClient: ({ chain }) =>
+        createPublicClient({
+          chain,
+          transport: http(
+            chain.id === chainConfig.ethereumSepolia.chainId
+              ? "https://ethereum-sepolia-rpc.publicnode.com"
+              : chain.rpcUrls.default.http[0]
+          ),
+        }),
+    });
+  };
+
+  // Pre-approve TokenMessengerWithFees with max uint256 so future fast deposits
+  // skip the in-flight approval wait (per Arc docs).
+  const handlePreApprove = async () => {
+    play("confirm");
+    if (!address) { toastError("Connect wallet first"); return; }
+    setIsPreApproving(true);
+    const approveToast = toastLoading(`Approving USDC on ${fastSourceConfig.label} for fast deposits...`);
+    try {
+      const adapter = await getAdapter();
+      const maxUint256 = 2n ** 256n - 1n;
+      const approval = await adapter.prepareAction(
+        "usdc.approve",
+        { amount: maxUint256, delegate: TOKEN_MESSENGER_WITH_FEES },
+        { chain: fastDepositRoute.sourceChain },
+      );
+      const txHash: string = await approval.execute();
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+        throw new Error("Invalid approval transaction hash");
+      }
+      setApproveTxHash(txHash as Hash);
+      toast.dismiss(approveToast);
+      toastInfo("Approval submitted — waiting for confirmation...");
+      const receipt = await adapter.waitForTransaction(txHash, { timeout: 60_000 }, fastDepositRoute.sourceChain);
+      if (receipt.status !== "success") throw new Error("Approval transaction reverted");
+      toast.dismiss();
+      toastSuccess("Pre-approval confirmed! Future fast deposits will skip the approval wait.");
+      play("success");
+    } catch (err: any) {
+      toast.dismiss(approveToast);
+      const isRejected = /user rejected|user denied|user cancelled/i.test(err?.message || "");
+      if (isRejected) toastInfo("Approval cancelled");
+      else toastError(err?.message || "Pre-approval failed");
+    } finally {
+      setIsPreApproving(false);
+    }
+  };
+
   const handleEstimateFastDeposit = async () => {
     play("click");
     if (!address) {
@@ -168,44 +230,15 @@ export function GatewayDashboard() {
 
     setIsEstimatingFastDeposit(true);
     try {
-      const provider = await getActiveProvider();
+      const adapter = await getAdapter();
+      const kit = new UnifiedBalanceKit({ environment: "testnet", adapter });
 
-      if (!provider) {
-        toastError("Wallet provider not available");
-        return;
-      }
-
-      const adapter = await createViemAdapterFromProvider({
-        provider,
-        getPublicClient: ({ chain }) =>
-          createPublicClient({
-            chain,
-            transport: http(
-              chain.id === chainConfig.ethereumSepolia.chainId
-                ? "https://ethereum-sepolia-rpc.publicnode.com"
-                : chain.rpcUrls.default.http[0]
-            ),
-          }),
-      });
-
-      const kit = new UnifiedBalanceKit({
-        environment: "testnet",
-        adapter,
-      });
-
-      const estimate = await kit.estimateDeposit({
-        from: {
-          adapter,
-          chain: fastDepositRoute.sourceChain,
-        },
+      const estimate = await kit.unifiedBalance.estimateDeposit({
+        from: { adapter, chain: fastDepositRoute.sourceChain },
         amount: fastDepositAmount,
         token: "USDC",
-        to: {
-          chain: fastDepositRoute.destinationChain,
-        },
-        config: {
-          transferSpeed: "FAST",
-        },
+        to: { chain: fastDepositRoute.destinationChain },
+        config: { transferSpeed: "FAST" },
       });
 
       setFastDepositEstimate(estimate);
@@ -233,35 +266,16 @@ export function GatewayDashboard() {
     setIsFastDepositing(true);
 
     try {
-      const provider = await getActiveProvider();
-
-      if (!provider) {
-        throw new Error("Active wallet provider unavailable");
-      }
-
-      const adapter = await createViemAdapterFromProvider({
-        provider,
-        getPublicClient: ({ chain }) =>
-          createPublicClient({
-            chain,
-            transport: http(
-              chain.id === chainConfig.ethereumSepolia.chainId
-                ? "https://ethereum-sepolia-rpc.publicnode.com"
-                : chain.rpcUrls.default.http[0]
-            ),
-          }),
-      });
+      const adapter = await getAdapter();
+      const kit = new UnifiedBalanceKit({ environment: "testnet", adapter });
 
       const depositToast = toastLoading(
         `Fast depositing ${fastDepositAmount} USDC from ${fastSourceConfig.label} to ${fastDestinationConfig.label}...`
       );
 
-      const result = await new UnifiedBalanceKit().deposit({
+      const result = await kit.unifiedBalance.deposit({
         ...fastDepositEstimate,
-        from: {
-          adapter,
-          chain: fastDepositRoute.sourceChain,
-        },
+        from: { adapter, chain: fastDepositRoute.sourceChain },
       });
 
       toast.dismiss(depositToast);
@@ -347,19 +361,38 @@ export function GatewayDashboard() {
     const amt = parseFloat(depositAmount);
     if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
 
+    const depositBalanceNum = depositBalanceRaw
+      ? parseFloat(formatUnits(BigInt(depositBalanceRaw), USDC_DECIMALS))
+      : 0;
+    if (amt > depositBalanceNum) {
+      toastError(`Insufficient balance. You have ${depositBalanceNum.toFixed(6)} USDC on ${depositConfig.label}.`);
+      return;
+    }
+
     setIsDepositing(true);
     const amountWei = parseUnits(depositAmount, USDC_DECIMALS);
+
+    // Build a public client for this chain to wait for receipts.
+    const publicClient = createPublicClient({
+      chain: depositConfig.chain,
+      transport: http(),
+    });
+
     try {
       if (!allowanceRaw || allowanceRaw < amountWei) {
         const approveToast = toastLoading(`Approving USDC on ${depositConfig.label}...`);
-        await writeContractAsync({
+        const approveTx = await writeContractAsync({
           address: depositConfig.usdcAddress,
           abi: erc20Abi,
           functionName: "approve",
           args: [GATEWAY_WALLET_ADDRESS, amountWei],
           chainId: depositConfig.chainId,
         });
-        await new Promise(r => setTimeout(r, 2000));
+        const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx });
+        toast.dismiss(approveToast);
+        if (approveReceipt.status !== "success") {
+          throw new Error("Approval transaction reverted — deposit cancelled.");
+        }
         await refetchAllowance();
         toastSuccess("Approved");
       }
@@ -372,6 +405,7 @@ export function GatewayDashboard() {
         args: [depositConfig.usdcAddress, amountWei],
         chainId: depositConfig.chainId,
       });
+      toast.dismiss(depositToast);
       toastSuccess("Deposit submitted! Waiting for finality.");
       play("click");
 
@@ -505,17 +539,21 @@ export function GatewayDashboard() {
             }}
             className="text-xs text-[#F2B134] hover:underline"
           >
-            ⟳ refresh
+            <RefreshCw size={12} className="inline-block mr-1" /> refresh
           </button>
         </div>
         <div className="space-y-1 min-w-0">
           {gatewayBalances.map((b) => {
             const chainKey = Object.keys(chainConfig).find(
               k => chainConfig[k as keyof typeof chainConfig].domainId === b.domain
-            ) || "unknown";
+            ) as keyof typeof chainConfig | undefined;
+            const chainLabel = chainKey ? chainConfig[chainKey].label : "Unknown";
             return (
               <div key={b.domain} className="receipt-row text-sm py-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
-                <span className="receipt-address min-w-0 truncate">{chainKey}</span>
+                <span className="receipt-address min-w-0 truncate flex items-center gap-1.5">
+                  {chainKey && <ChainIcon chainKey={chainKey} size={13} />}
+                  {chainLabel}
+                </span>
                 <span className="receipt-amount shrink-0">{getDisplayBalance(b.balance)} USDC</span>
               </div>
             );
@@ -547,21 +585,30 @@ export function GatewayDashboard() {
             <span className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-hidden">
               {depositMode === "fast" ? (
                 <>
-                  <span className="truncate min-w-0">{fastSourceConfig.label} → {fastDestinationConfig.label}</span>
+                  <span className="truncate min-w-0 flex items-center gap-1.5">
+                    <ChainIcon chainKey={fastDepositRoute?.from ?? ""} size={14} />
+                    {fastSourceConfig.label}
+                    <ArrowRight size={12} className="shrink-0" />
+                    <ChainIcon chainKey={fastDepositRoute?.to ?? ""} size={14} />
+                    {fastDestinationConfig.label}
+                  </span>
                   <span className="flex items-center gap-1 text-[#F2B134] shrink-0">
                     <Zap size={13} />
                     <span className="text-xs">40x faster</span>
                   </span>
                 </>
               ) : (
-                <span className="truncate">
-                  {chainConfig[depositChain].label} → Gateway
+                <span className="truncate flex items-center gap-1.5">
+                  <ChainIcon chainKey={depositChain} size={14} />
+                  {chainConfig[depositChain].label}
+                  <ArrowRight size={12} className="shrink-0" />
+                  Gateway
                 </span>
               )}
             </span>
 
             <span className="text-[#9C917E] shrink-0">
-              {depositRouteOpen ? "▲" : "▼"}
+              {depositRouteOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </span>
           </button>
 
@@ -586,7 +633,7 @@ export function GatewayDashboard() {
                       : "text-[#EDE3D0]"
                   }`}
                 >
-                  <span>{chainConfig[key].label} → Gateway</span>
+                  <span className="flex items-center gap-1.5"><ChainIcon chainKey={key} size={14} />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
                   <span className="text-xs text-[#6B5F4F]">standard</span>
                 </button>
               ))}
@@ -651,7 +698,7 @@ export function GatewayDashboard() {
             )}
 
             <div className="flex flex-col gap-3 min-w-0">
-              <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+              <div className="flex gap-2 min-w-0">
                 <input
                   type="number"
                   step="0.01"
@@ -662,8 +709,22 @@ export function GatewayDashboard() {
                     setFastDepositAmount(e.target.value);
                     setFastDepositEstimate(null);
                   }}
-                  className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
+                  className="w-full min-w-0 flex-1 input text-sm h-10"
                 />
+                {fastDepositBalanceRaw !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const max = parseFloat(formatUnits(fastDepositBalanceRaw, USDC_DECIMALS)).toFixed(6);
+                      setFastDepositAmount(max);
+                      setFastDepositEstimate(null);
+                      play("step");
+                    }}
+                    className="text-xs shrink-0 px-3 h-10 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
+                  >
+                    MAX
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
@@ -744,17 +805,42 @@ export function GatewayDashboard() {
                 )}
               </button>
 
+              {/* Pre-approve allowance — removes the in-flight approval wait from future deposits */}
+              <div className="border-t border-[rgba(242,177,52,0.10)] pt-3">
+                <div className="flex items-start gap-2 mb-2">
+                  <ShieldCheck size={14} className="text-[#F2B134] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-[#EDE3D0] font-medium">Pre-approve allowance</p>
+                    <p className="text-xs text-[#6B5F4F] leading-relaxed mt-0.5">
+                      Set a max USDC allowance once so future fast deposits skip the approval step and execute faster.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePreApprove}
+                  disabled={isPreApproving || fastDepositSwitch.isMismatched || !address}
+                  className={`w-full inline-flex items-center justify-center gap-1.5 text-sm py-2 px-3 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition ${isPreApproving || fastDepositSwitch.isMismatched || !address ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  {isPreApproving ? (
+                    <><LoaderCircle size={14} className="animate-spin" /> Approving…</>
+                  ) : (
+                    <><ShieldCheck size={14} /> Pre-approve USDC allowance</>
+                  )}
+                </button>
+                {approveTxHash && (
+                  <p className="text-[10px] text-[#6B5F4F] mt-1 font-mono truncate">
+                    Approval tx: {approveTxHash.slice(0, 10)}…{approveTxHash.slice(-6)}
+                  </p>
+                )}
+              </div>
+
               <div className="mt-2 text-xs text-[#6B5F4F] space-y-1 break-words leading-relaxed">
                 <div>
                   Balance:{" "}
                   <span className="data-value">
                     {fastDepositBalanceRaw !== undefined
-                      ? parseFloat(
-                          formatUnits(
-                            BigInt(fastDepositBalanceRaw),
-                            USDC_DECIMALS
-                          )
-                        ).toFixed(6)
+                      ? parseFloat(formatUnits(fastDepositBalanceRaw, USDC_DECIMALS)).toFixed(6)
                       : "0.000000"}
                   </span>{" "}
                   USDC on {fastSourceConfig.label}
@@ -764,12 +850,7 @@ export function GatewayDashboard() {
                   Allowance:{" "}
                   <span className="data-value">
                     {fastDepositAllowanceRaw !== undefined
-                      ? parseFloat(
-                          formatUnits(
-                            BigInt(fastDepositAllowanceRaw),
-                            USDC_DECIMALS
-                          )
-                        ).toFixed(6)
+                      ? parseFloat(formatUnits(fastDepositAllowanceRaw, USDC_DECIMALS)).toFixed(6)
                       : "0.000000"}
                   </span>{" "}
                   USDC
@@ -798,7 +879,7 @@ export function GatewayDashboard() {
             )}
             {depositSwitch.error && <div className="text-[#C4553D] text-xs mb-2">{depositSwitch.error}</div>}
             <div className="flex flex-col gap-3 min-w-0">
-              <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+              <div className="flex gap-2 min-w-0">
                 <input
                   type="number"
                   step="0.01"
@@ -806,8 +887,20 @@ export function GatewayDashboard() {
                   placeholder="Amount"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
-                  className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
+                  className="w-full min-w-0 flex-1 input text-sm h-10"
                 />
+                {depositBalanceRaw && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDepositAmount(parseFloat(formatUnits(depositBalanceRaw, USDC_DECIMALS)).toFixed(6));
+                      play("step");
+                    }}
+                    className="text-xs shrink-0 px-3 h-10 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
+                  >
+                    MAX
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
                 {["0.1", "0.5", "1", "5", "10"].map((preset) => (
@@ -834,7 +927,7 @@ export function GatewayDashboard() {
               </button>
               <div className="text-xs text-[#9C917E] space-y-1 break-words leading-relaxed">
                 {depositBalanceRaw && (
-                  <div>Balance: <span className="data-value">{parseFloat(formatUnits(BigInt(depositBalanceRaw), USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
+                  <div>Balance: <span className="data-value">{parseFloat(formatUnits(depositBalanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
                 )}
                 {allowanceRaw !== null && allowanceRaw !== undefined && (
                   <div>Allowance: <span className="data-value">{parseFloat(formatUnits(allowanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC</div>
@@ -875,9 +968,9 @@ export function GatewayDashboard() {
                 <option key={key} value={key}>{chainConfig[key].label}</option>
               ))}
             </select>
-            <span className="text-[#9C917E] text-sm shrink-0">→ Arc</span>
+            <span className="text-[#9C917E] text-sm shrink-0 flex items-center gap-1.5"><ArrowRight size={12} /><ChainIcon chainKey="arc" size={14} /> Arc</span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+          <div className="flex gap-2 min-w-0 items-center">
             <input
               type="number"
               step="0.01"
@@ -885,10 +978,24 @@ export function GatewayDashboard() {
               placeholder="Amount"
               value={bridgeAmount}
               onChange={(e) => setBridgeAmount(e.target.value)}
-              className="w-full min-w-0 flex-1 input text-sm h-10 sm:h-auto"
+              className="w-full min-w-0 flex-1 input text-sm h-10"
             />
-            <span className="text-[#9C917E] text-sm self-center">USDC</span>
+            {sourceBalanceNum > 0 && (
+              <button
+                type="button"
+                onClick={() => { setBridgeAmount(sourceBalanceNum.toFixed(6)); play("step"); }}
+                className="text-xs shrink-0 px-3 h-10 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
+              >
+                MAX
+              </button>
+            )}
+            <span className="text-[#9C917E] text-sm shrink-0">USDC</span>
           </div>
+          {sourceBalanceNum === 0 && (
+            <div className="text-xs text-[#C4553D] bg-[#C4553D]/10 border border-[#C4553D]/20 rounded px-3 py-2">
+              No Gateway balance on {bridgeSourceConfig.label}. Deposit first before bridging.
+            </div>
+          )}
           <div className="grid grid-cols-5 gap-1.5 sm:flex sm:flex-wrap">
             {["0.1", "0.5", "1", "5", "10"].map((preset) => (
               <button

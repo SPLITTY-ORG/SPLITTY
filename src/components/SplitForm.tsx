@@ -32,6 +32,8 @@ import {
   RotateCcw,
   ArrowRight,
   CheckCircle,
+  Check,
+  X,
   Send,
   Link,
   ArrowDownToLine,
@@ -50,6 +52,7 @@ import {
   AlertTriangle,
   XCircle,
 } from "lucide-react";
+import { ChainIcon } from "./ChainIcon";
 
 import {
   toastSuccess,
@@ -111,6 +114,8 @@ type SavedList = {
 const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 const USDC_DECIMALS = 6;
 
+// SplittyBatcher contract — deployed on Arc Testnet (chain ID 5042002).
+// Handles ERC-20 batch transfers for custom tokens.
 const CUSTOM_TOKEN_BATCHER =
   "0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3" as Address;
 
@@ -189,7 +194,11 @@ const ERC20_ABI = [
 type FundingSource = "native" | "unified" | "hybrid";
 type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | "confirmed" | "partial" | "failed";
 
-export function SplitForm() {
+interface SplitFormProps {
+  onGoToFundGateway?: () => void;
+}
+
+export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
   const [csvError, setCsvError] = useState<string | null>(null);
   const [isEqualMode, setIsEqualMode] = useState(false); // default to CUSTOM
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -214,6 +223,7 @@ export function SplitForm() {
   const [tokenSymbol, setTokenSymbol] = useState("USDC");
   const [tokenDecimals, setTokenDecimals] = useState<number>(USDC_DECIMALS);
   const [tokenName, setTokenName] = useState("USD Coin");
+  const [isLoadingTokenMeta, setIsLoadingTokenMeta] = useState(false);
   const [fundingSource, setFundingSource] = useState<FundingSource>("native");
   const [status, setStatus] = useState<Status>("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -285,9 +295,12 @@ export function SplitForm() {
   });
 
   useEffect(() => {
-    if (fetchedDecimals !== undefined) setTokenDecimals(Number(fetchedDecimals));
-    if (fetchedSymbol) setTokenSymbol(fetchedSymbol);
-    if (fetchedName) setTokenName(fetchedName);
+    if (fetchedDecimals !== undefined || fetchedSymbol || fetchedName) {
+      if (fetchedDecimals !== undefined) setTokenDecimals(Number(fetchedDecimals));
+      if (fetchedSymbol) setTokenSymbol(fetchedSymbol);
+      if (fetchedName) setTokenName(fetchedName);
+      setIsLoadingTokenMeta(false);
+    }
   }, [fetchedDecimals, fetchedSymbol, fetchedName]);
 
   const activeTokenAddress = isCustomToken && isAddress(customTokenAddress)
@@ -419,7 +432,26 @@ export function SplitForm() {
   };
 
   useEffect(() => {
-    if (address) fetchSavedLists();
+    if (!address) return;
+    let isMounted = true;
+    const load = async () => {
+      setLoadingLists(true);
+      const { data, error } = await supabase
+        .from("saved_recipient_lists")
+        .select("*")
+        .eq("wallet_address", address)
+        .order("created_at", { ascending: false });
+      if (!isMounted) return;
+      if (error) {
+        console.error(error);
+        toastError("Failed to load saved lists.");
+      } else {
+        setSavedLists(data || []);
+      }
+      setLoadingLists(false);
+    };
+    load();
+    return () => { isMounted = false; };
   }, [address]);
 
   const loadList = (listId: string) => {
@@ -557,7 +589,7 @@ setValue("recipients", list.recipients);
                   symbol: tokenSymbol,
                   decimals: activeDecimals,
                 },
-                fundingSource,
+                fundingSource: isCustomToken ? "wallet" : fundingSource,
                 nativeContribution: nativeContributionNum.toFixed(activeDecimals),
                 unifiedContribution: unifiedContributionNum.toFixed(activeDecimals),
               },
@@ -672,7 +704,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       const current = watch(`recipients.${i}.amount`);
       if (current !== each) setValue(`recipients.${i}.amount`, each);
     });
-  }, [isEqualMode, totalAmount, recipients.map(r => r.address).join(","), activeDecimals, watch, setValue]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEqualMode, totalAmount, recipients.map(r => r.address).join(","), activeDecimals]);
 
   // ---------- Computed helpers ----------
   const validRecipientsCount = recipients.filter(r => r.address.trim() && r.amount.trim()).length;
@@ -1097,6 +1130,13 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       toastError("Please add at least one valid recipient");
       return;
     }
+    if (valid.length > 500) {
+      toastError(`Too many recipients (${valid.length}). Max 500 per transaction to avoid hitting the gas limit.`);
+      return;
+    }
+    if (valid.length > 200) {
+      toastInfo(`Large batch: ${valid.length} recipients. Make sure you have enough gas.`);
+    }
 
     // Check for duplicate addresses
     const seen = new Set<string>();
@@ -1192,9 +1232,25 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
       setStatusMessage("Waiting for token approval...");
 
-      await publicClient.waitForTransactionReceipt({
+      const approvalReceipt = await publicClient.waitForTransactionReceipt({
         hash: approvalHash,
       });
+
+      if (approvalReceipt.status !== "success") {
+        throw new Error("Token approval transaction failed. Please try again.");
+      }
+
+      // Re-read allowance to confirm it landed before proceeding.
+      const confirmedAllowance = await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [address, CUSTOM_TOKEN_BATCHER],
+      });
+
+      if (confirmedAllowance < totalAmountWei) {
+        throw new Error("Allowance not confirmed on-chain. Please try again.");
+      }
     }
 
     setStatus("confirming");
@@ -1363,9 +1419,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       case "funding": return "FUNDING…";
       case "confirming": return "CONFIRM IN WALLET";
       case "broadcasting": return "BROADCASTING…";
-      case "confirmed": return "✓ CONFIRMED";
+      case "confirmed": return "CONFIRMED";
       case "failed": return "FAILED — Retry";
-      default: return arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : "Review Split →";
+      default: return arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : "Review Split";
     }
   };
 
@@ -1375,7 +1431,15 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
     validRecipientsCount === 0 ||
     arcSwitch.isMismatched ||
     status === "broadcasting" ||
-    status === "confirmed" ||
+    status === "funding";
+
+  // Review modal confirm should be disabled independently — confirmed is fine
+  // to re-open a new split, but broadcasting/funding must not allow a second submit.
+  const isReviewConfirmDisabled =
+    isLoading ||
+    !address ||
+    arcSwitch.isMismatched ||
+    status === "broadcasting" ||
     status === "funding";
 
   const getStatusColor = () => {
@@ -1446,8 +1510,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               }}
               className={`network-pill ${net.active ? "network-pill-active" : "network-pill-inactive"} cursor-pointer`}
             >
-              <span className={`network-dot ${net.active ? "network-dot-active" : "network-dot-inactive"}`}></span>
-              {net.active && <span className="text-[#F2B134]">✓</span>}
+              <ChainIcon chainKey={net.key} size={16} />
+              {net.active && <Check size={12} className="text-[#F2B134]" />}
               <span>{net.label}</span>
             </div>
           ))}
@@ -1460,7 +1524,13 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <span className="field-label">WALLET</span>
             <span className="data-value font-mono">{displayAddress.slice(0, 6)}…{displayAddress.slice(-4)}</span>
             <span className="field-label">BALANCE</span>
-            <span className="data-value font-mono">{nativeUSDCBalance.toFixed(6)} USDC</span>
+            <span className="data-value font-mono">
+              {isCustomToken && isAddress(customTokenAddress)
+                ? isLoadingTokenMeta
+                  ? "…"
+                  : `${nativeAvailable.toFixed(tokenDecimals > 6 ? 6 : tokenDecimals)} ${tokenSymbol}`
+                : `${nativeUSDCBalance.toFixed(6)} USDC`}
+            </span>
             {networkStatus && <span className="text-amber ml-auto text-xs">{networkStatus}</span>}
           </div>
         )}
@@ -1501,21 +1571,31 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                 onChange={(e) => {
                   const val = e.target.value.trim();
                   setCustomTokenAddress(val);
+                  // Reset stale metadata immediately so old values never linger.
+                  setTokenSymbol("???");
+                  setTokenDecimals(18);
+                  setTokenName("");
                   if (isAddress(val)) {
                     setValue("tokenAddress", val);
+                    setIsLoadingTokenMeta(true);
                     refetchDecimals();
                     refetchSymbol();
                     refetchName();
                   } else {
-                    setTokenSymbol("???");
-                    setTokenDecimals(18);
+                    setIsLoadingTokenMeta(false);
                   }
                 }}
                 className="input"
               />
               {isAddress(customTokenAddress) && (
                 <div className="helper-text mt-1">
-                  {tokenSymbol} ({tokenName}) • {tokenDecimals} decimals
+                  {isLoadingTokenMeta ? (
+                    <span className="text-[#6B5F4F] animate-pulse">Loading token info…</span>
+                  ) : (
+                    <span className={tokenSymbol === "???" ? "text-[#C4553D]" : ""}>
+                      {tokenSymbol === "???" ? "Could not load token — check the address" : `${tokenSymbol} (${tokenName}) • ${tokenDecimals} decimals`}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -1577,9 +1657,15 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
             <Banknote size={14} className="inline-block" /> Where should the funds come from?
           </label>
+          {isCustomToken && (
+            <p className="text-[10px] font-mono text-[#6B5F4F] mb-2">
+              Gateway and hybrid funding for custom tokens is a planned integration — only wallet balance is supported right now.
+            </p>
+          )}
           <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             {["native", "unified", "hybrid"].map((src) => {
               const isDisabled = isCustomToken && src !== "native";
+              const isPlanned = src === "unified" || src === "hybrid";
               // Custom labels for funding sources
               let label = src.toUpperCase();
               if (src === "unified") label = "GATEWAY BALANCE";
@@ -1595,15 +1681,19 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                     }
                   }}
                   disabled={isDisabled}
-                  className={`flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
+                  className={`relative flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
                     fundingSource === src
                       ? "bg-amber text-[#15100B]"
                       : "text-[#9C917E] hover:text-[#EDE3D0]"
                   } ${isDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                  title={isDisabled ? "Coming soon – only native funding supported for custom tokens" : ""}
+                  title={isDisabled ? `${label} — coming soon for custom tokens` : ""}
                 >
                   <span className="truncate">{label}</span>
-                  {isDisabled && <span className="hidden sm:inline"> (soon)</span>}
+                  {isDisabled && isPlanned && (
+                    <span className="ml-1 inline-flex items-center rounded-full bg-[rgba(242,177,52,0.15)] border border-[rgba(242,177,52,0.3)] px-1.5 py-0.5 text-[9px] font-mono text-[#F2B134] leading-none">
+                      SOON
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1674,8 +1764,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                               : "border-[#6B5F4F]"
                           }`}
                         >
-                          {selected && "✓"}
+                          {selected && <Check size={12} className="inline-block" />}
                         </span>
+                        <ChainIcon chainKey={b.key} size={13} />
                         <span className="truncate">
                           {chainConfig[b.key].label}
                         </span>
@@ -1746,7 +1837,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
             <button
               onClick={() => {
-                toastInfo("Deposit to Unified Balance");
+                if (onGoToFundGateway) {
+                  onGoToFundGateway();
+                } else {
+                  toastInfo("Go to the Fund Gateway tab to deposit.");
+                }
               }}
               className="btn-primary text-sm py-1 px-3 mt-2 inline-flex items-center gap-1.5"
             >
@@ -1948,7 +2043,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                       onClick={() => { remove(realIndex); play("click"); }}
                       className="text-[#9C917E] hover:text-[#C4553D] transition px-1"
                     >
-                      ✕
+                      <X size={12} />
                     </button>
                   </div>
                 );
@@ -1981,10 +2076,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <div>
               <span className="field-label block">EACH</span>
               <span className="data-value">
-                {validRecipientsCount > 0 && !isEqualMode ?
-                  (getTotalToSend() / validRecipientsCount).toFixed(activeDecimals) :
-                  getEqualAmount() || "—"
-                } {tokenSymbol}
+                {isEqualMode
+                  ? `${getEqualAmount() || "—"} ${tokenSymbol}`
+                  : "—"}
               </span>
             </div>
           </div>
@@ -2086,6 +2180,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                    setStatus("idle");
                    setStatusMessage("");
                    setTxHash(null);
+                   setBridgeTxHash(null);
+                   setTxError(null);
+                   historySavedRef.current = false;
                  }}
                  className="mt-2 underline text-[#F2B134] hover:text-[#EDE3D0] font-mono"
                >
@@ -2112,7 +2209,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               setIsSubmitting(false);
               setShowReview(false);
               setShowAllRecipients(false);
-              savedListSelectRef.current && (savedListSelectRef.current.value = "");
+              setFailedRecipients([]);
+              setPendingData(null);
+              setPendingBridge(null);
+              historySavedRef.current = false;
+              if (savedListSelectRef.current) savedListSelectRef.current.value = "";
             }}
             className="btn-secondary flex-1 inline-flex items-center justify-center gap-1.5"
           >
@@ -2125,12 +2226,15 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             disabled={isSubmitDisabled}
             className={`btn-primary flex-1 inline-flex items-center justify-center gap-1.5 ${isSubmitDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
           >
-            {getButtonLabel() === "Review Split →" ? (
+            {getButtonLabel() === "Review Split" ? (
               <>
                 Review Split <ArrowRight size={14} className="inline-block ml-1" />
               </>
-            ) : getButtonLabel() === "Switch to Arc" || getButtonLabel() === "Processing…" ? (
-              getButtonLabel()
+            ) : status === "confirmed" ? (
+              <>
+                <Check size={14} className="inline-block mr-1.5" />
+                CONFIRMED
+              </>
             ) : status === "confirming" ? (
               <>
                 <Send size={14} className="inline-block mr-1.5" />
@@ -2218,8 +2322,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                 </button>
                 <button
                   onClick={executeSplit}
-                  disabled={isSubmitDisabled}
-                  className={`flex-1 btn-primary inline-flex items-center justify-center gap-1.5 ${isSubmitDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  disabled={isReviewConfirmDisabled}
+                  className={`flex-1 btn-primary inline-flex items-center justify-center gap-1.5 ${isReviewConfirmDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
                   {arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : (
                     <>

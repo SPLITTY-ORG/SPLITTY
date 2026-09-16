@@ -9,7 +9,9 @@ export function RecentActivity({ onViewAll }: { onViewAll?: () => void }) {
 
   useEffect(() => {
     if (!address) return;
-    const fetch = async () => {
+    let isMounted = true;
+
+    const fetchRecent = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("transaction_history")
@@ -17,10 +19,26 @@ export function RecentActivity({ onViewAll }: { onViewAll?: () => void }) {
         .eq("wallet_address", address)
         .order("created_at", { ascending: false })
         .limit(5);
-      if (!error && data) setActivities(data);
-      setLoading(false);
+      if (isMounted && !error && data) setActivities(data);
+      if (isMounted) setLoading(false);
     };
-    fetch();
+
+    fetchRecent();
+
+    // Realtime: push new rows immediately
+    const channel = supabase
+      .channel(`recent-activity-${address}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "transaction_history", filter: `wallet_address=eq.${address}` },
+        () => { fetchRecent(); }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
   }, [address]);
 
   if (loading) return <div className="panel text-xs text-[#9C917E]">Loading...</div>;

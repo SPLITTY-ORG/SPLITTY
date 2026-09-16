@@ -31,6 +31,8 @@ export function RecentActivitySidebar({ onViewAll }: { onViewAll: () => void }) 
 
   useEffect(() => {
     if (!address) return;
+    let isMounted = true;
+
     const fetchRecent = async () => {
       const { data, error } = await supabase
         .from("transaction_history")
@@ -38,6 +40,7 @@ export function RecentActivitySidebar({ onViewAll }: { onViewAll: () => void }) 
         .eq("wallet_address", address)
         .order("created_at", { ascending: false })
         .limit(3);
+      if (!isMounted) return;
       if (error) {
         console.error(error);
       } else {
@@ -45,7 +48,23 @@ export function RecentActivitySidebar({ onViewAll }: { onViewAll: () => void }) 
       }
       setLoading(false);
     };
+
     fetchRecent();
+
+    // Realtime: push new rows immediately without a page refresh
+    const channel = supabase
+      .channel(`recent-sidebar-${address}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "transaction_history", filter: `wallet_address=eq.${address}` },
+        () => { fetchRecent(); }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
   }, [address]);
 
   if (!address) return <div className="panel"><p className="text-[#9C917E]">Connect wallet to see activity.</p></div>;

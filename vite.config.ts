@@ -15,5 +15,8 @@ export default defineConfig({
       protocolImports: true,
     }),
   ],
-  server: { host: true },
+  server: {
+    host: true,
+    allowedHosts: ['ibf87k1u9lh3nl2t4r0hx.preview.studio.arc.io'],
+  },
 });
