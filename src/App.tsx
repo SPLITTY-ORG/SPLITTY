@@ -22,6 +22,7 @@ import {
   Zap,
   Volume2,
   VolumeX,
+  BookOpen,
 } from "lucide-react";
 
 type Tab = "split" | "gateway" | "history";
@@ -178,9 +179,9 @@ function App() {
             </span>
           </div>
 
-          <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-[rgba(242,177,52,0.2)] bg-[#1D1712] px-3 py-1 font-mono text-[10px] tracking-[0.15em] text-[#9C917E] sm:text-[11px]">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4ADE80]" />
-            LIVE ON ARC TESTNET
+          <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-[rgba(242,177,52,0.10)] bg-[#1A1410] px-3 py-1 font-mono text-[10px] tracking-[0.15em] text-[#6B5F4F] sm:text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#4ADE80] opacity-60" />
+            ARC TESTNET
           </span>
 
           {/* Headline. No hard line break -- it wraps to suit the viewport. */}
@@ -190,10 +191,14 @@ function App() {
           </h1>
 
           <p className="mt-5 max-w-xl text-balance text-center font-sans text-[15px] leading-relaxed text-[#9C917E] sm:text-lg">
-            Seamlessly distribute USDC or any token on{" "}
-            <span className="text-[#EDE3D0]">Arc</span>, powered by{" "}
-            <span className="text-[#EDE3D0]">Circle Gateway</span> — a unified
-            USDC account for instant cross-chain liquidity.
+            Split payments to any number of wallets — one click, one transaction, from any chain.
+          </p>
+          <p className="mt-3 max-w-lg text-balance text-center font-mono text-[12px] leading-relaxed text-[#6B5F4F] sm:text-[13px]">
+            Powered by{" "}
+            <span className="text-[#9C917E]">Arc</span>{" "}
+            and{" "}
+            <span className="text-[#9C917E]">Circle Gateway</span>{" "}
+            — instant access to USDC liquidity across chains.
           </p>
 
           {/* CTA. Full width on phones, sized to content from sm up. */}
@@ -265,8 +270,43 @@ function App() {
             </div>
           </div>
 
+          {/* How it works */}
+          <div className="mt-16 w-full sm:mt-20">
+            <p className="mb-6 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-[#6B5F4F]">
+              How it works
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+              {[
+                {
+                  step: "01",
+                  title: "Connect your wallet",
+                  desc: "Sign in with a browser wallet or email — no setup, no seed phrase required.",
+                },
+                {
+                  step: "02",
+                  title: "Add recipients",
+                  desc: "Paste addresses, upload a CSV, or pick a saved list. Set amounts individually or split equally.",
+                },
+                {
+                  step: "03",
+                  title: "Send in one transaction",
+                  desc: "Review the split, confirm once in your wallet. Every recipient gets paid in a single on-chain call.",
+                },
+              ].map(({ step, title, desc }) => (
+                <div
+                  key={step}
+                  className="relative rounded-lg border border-[rgba(242,177,52,0.10)] bg-[#1A1410] p-4 text-left"
+                >
+                  <span className="font-mono text-[10px] text-[#6B5F4F] tracking-widest">{step}</span>
+                  <p className="mt-2 font-mono text-[13px] font-medium text-[#EDE3D0]">{title}</p>
+                  <p className="mt-1.5 font-sans text-[12px] leading-relaxed text-[#6B5F4F]">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Footer */}
-          <div className="mt-14 w-full border-t border-[rgba(242,177,52,0.08)] pt-6 sm:mt-16">
+          <div className="mt-16 w-full border-t border-[rgba(242,177,52,0.08)] pt-8 sm:mt-20">
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-[11px] text-[#6B5F4F]">
               <span>Arc Testnet</span>
               <span aria-hidden="true">·</span>
@@ -274,7 +314,7 @@ function App() {
               <span aria-hidden="true">·</span>
               <span>USDC &amp; ERC-20 tokens</span>
             </div>
-            <div className="mt-3 flex items-center justify-center gap-3">
+            <div className="mt-4 flex items-center justify-center gap-3">
               <a
                 href="https://github.com/SPLITTY-ORG/SPLITTY"
                 target="_blank"
@@ -294,6 +334,16 @@ function App() {
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                 X
+              </a>
+              <a
+                href="https://splittyonarc.gitbook.io/splitty-docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.18)] bg-[#1D1712]/70 px-3 py-1.5 font-mono text-[11px] text-[#9C917E] transition-colors hover:border-[rgba(242,177,52,0.4)] hover:text-[#F2B134]"
+                aria-label="Splitty documentation"
+              >
+                <BookOpen size={12} aria-hidden="true" />
+                Docs
               </a>
             </div>
           </div>
