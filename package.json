@@ -12,7 +12,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@circle-fin/adapter-viem-v2": "^1.17.1",
     "@circle-fin/app-kit": "^1.13.0",
+    "@circle-fin/unified-balance-kit": "^1.6.0",
     "@privy-io/react-auth": "^3.38.0",
     "@privy-io/wagmi": "^4.0.17",
     "@solana-program/system": "^0.14.1",
