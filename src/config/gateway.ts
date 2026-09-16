@@ -56,7 +56,7 @@ export const chainConfig = {
     addParams: {
       chainId: `0x${sepolia.id.toString(16)}`,
       chainName: "Sepolia",
-      rpcUrls: ["https://rpc.sepolia.org"],
+      rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
       nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
       blockExplorerUrls: ["https://sepolia.etherscan.io"],
     },
