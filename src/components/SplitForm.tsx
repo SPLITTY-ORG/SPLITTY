@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { parse as parseCSV } from "csv-parse/sync";
-import { isAddress, getAddress, formatUnits, parseUnits, type Address } from "viem";
+import {
+  isAddress,
+  getAddress,
+  formatUnits,
+  parseUnits,
+  createPublicClient,
+  http,
+  type Address,
+} from "viem";
+
 import {
   useAccount,
   useWriteContract,
@@ -10,25 +19,13 @@ import {
   useSwitchChain,
   useSignTypedData,
   useReadContract,
+  usePublicClient,
+  useConfig,
 } from "wagmi";
+
 import toast from "react-hot-toast";
 import { useWallets } from "@privy-io/react-auth";
-import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
-import { FORWARDER_ADDRESS, forwarderAbi, buildTransferCalls } from "../utils/multicall";
-import { splitEqually } from "../utils/splitMath";
-import {
-  decodeTransfers,
-  resolveOutcomes,
-  type RecipientOutcome,
-} from "../utils/transferOutcomes";
-import { exceedsTokenPrecision } from "../utils/amountPrecision";
-import { supabase } from "../lib/supabase";
-import { chainConfig } from "../config/gateway";
-import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
-import { useSound } from "../hooks/useSound";
-import { useChainSwitch } from "../hooks/useChainSwitch";
-import { useWalletBalance, useInvalidateBalances, useGatewayBalance } from "../hooks/useBalances";
-import { getBestGatewaySource } from "../utils/gatewaySelection";
+
 import {
   Trash2,
   Plus,
@@ -49,7 +46,48 @@ import {
   Save,
   Users,
   Receipt,
+  LoaderCircle,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
+
+import {
+  toastSuccess,
+  toastError,
+  toastLoading,
+  toastInfo,
+} from "../lib/toast";
+
+import {
+  FORWARDER_ADDRESS,
+  forwarderAbi,
+  buildTransferCalls,
+} from "../utils/multicall";
+
+import { splitEqually } from "../utils/splitMath";
+
+import {
+  decodeTransfers,
+  resolveOutcomes,
+  type RecipientOutcome,
+} from "../utils/transferOutcomes";
+
+import { exceedsTokenPrecision } from "../utils/amountPrecision";
+import { supabase } from "../lib/supabase";
+import { chainConfig } from "../config/gateway";
+import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
+import { useSound } from "../hooks/useSound";
+import { useChainSwitch } from "../hooks/useChainSwitch";
+
+import {
+  useWalletBalance,
+  useInvalidateBalances,
+  useGatewayBalance,
+} from "../hooks/useBalances";
+
+import { getBestGatewaySource } from "../utils/gatewaySelection";
+import { UnifiedBalanceKit } from "@circle-fin/unified-balance-kit";
+import { createViemAdapterFromProvider } from "@circle-fin/adapter-viem-v2";
 
 type Recipient = {
   address: string;
@@ -72,6 +110,30 @@ type SavedList = {
 
 const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 const USDC_DECIMALS = 6;
+
+const CUSTOM_TOKEN_BATCHER =
+  "0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3" as Address;
+
+const CUSTOM_TOKEN_BATCHER_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "token", type: "address" },
+      {
+        components: [
+          { internalType: "address", name: "to", type: "address" },
+          { internalType: "uint256", name: "amount", type: "uint256" },
+        ],
+        internalType: "struct SplittyBatcher.Transfer[]",
+        name: "transfers",
+        type: "tuple[]",
+      },
+    ],
+    name: "batchTransfer",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
 
 const ERC20_ABI = [
   {
@@ -101,6 +163,26 @@ const ERC20_ABI = [
     stateMutability: "view",
     type: "function",
     outputs: [{ type: "string" }],
+  },
+  {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    stateMutability: "view",
+    type: "function",
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    stateMutability: "nonpayable",
+    type: "function",
+    outputs: [{ type: "bool" }],
   },
 ] as const;
 
@@ -234,17 +316,86 @@ export function SplitForm() {
     address: address,
   });
 
-  const arcGateway = useGatewayBalance(26);
-  const baseGateway = useGatewayBalance(6);
-  const ethGateway = useGatewayBalance(0);
+  const arcGateway = useGatewayBalance(chainConfig.arc.domainId);
+  const baseGateway = useGatewayBalance(chainConfig.baseSepolia.domainId);
+  const ethGateway = useGatewayBalance(chainConfig.ethereumSepolia.domainId);
+  const avalancheGateway = useGatewayBalance(chainConfig.avalancheFuji.domainId);
+  const polygonGateway = useGatewayBalance(chainConfig.polygonAmoy.domainId);
+
+  const normalizeGatewayBalance = (value: unknown): string => {
+    if (typeof value !== "string" && typeof value !== "number") {
+      return "0";
+    }
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : "0";
+  };
 
   const gatewayBalances = [
-    { domain: 26, balance: arcGateway.data ?? "0" },
-    { domain: 6, balance: baseGateway.data ?? "0" },
-    { domain: 0, balance: ethGateway.data ?? "0" },
+    {
+      key: "arc" as const,
+      domain: chainConfig.arc.domainId,
+      balance: normalizeGatewayBalance(arcGateway.data),
+    },
+    {
+      key: "baseSepolia" as const,
+      domain: chainConfig.baseSepolia.domainId,
+      balance: normalizeGatewayBalance(baseGateway.data),
+    },
+    {
+      key: "ethereumSepolia" as const,
+      domain: chainConfig.ethereumSepolia.domainId,
+      balance: normalizeGatewayBalance(ethGateway.data),
+    },
+    {
+      key: "avalancheFuji" as const,
+      domain: chainConfig.avalancheFuji.domainId,
+      balance: normalizeGatewayBalance(avalancheGateway.data),
+    },
+    {
+      key: "polygonAmoy" as const,
+      domain: chainConfig.polygonAmoy.domainId,
+      balance: normalizeGatewayBalance(polygonGateway.data),
+    },
   ];
 
-  const { writeContract, data: writeData, isPending, error, reset: resetWrite } = useWriteContract();
+  type GatewayFundingChain = typeof gatewayBalances[number]["key"];
+
+  const [selectedGatewaySources, setSelectedGatewaySources] = useState<
+    GatewayFundingChain[]
+  >([
+    "arc",
+    "baseSepolia",
+    "ethereumSepolia",
+    "avalancheFuji",
+    "polygonAmoy",
+  ]);
+
+  const toggleGatewaySource = (key: GatewayFundingChain) => {
+    setSelectedGatewaySources((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key]
+    );
+  };
+
+  const publicClient = usePublicClient();
+  const config = useConfig();
+
+  const {
+    writeContract,
+    writeContractAsync,
+    data: writeData,
+    isPending,
+    error,
+    reset: resetWrite,
+  } = useWriteContract();
+
+  const {
+    writeContractAsync: writeApprovalContractAsync,
+  } = useWriteContract();
+
   const { isLoading: isWaiting, isSuccess, data: receipt } = useWaitForTransactionReceipt({
     hash: writeData,
   });
@@ -657,9 +808,23 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
   const totalNeeded = parseFloat(totalAmount || "0") || getTotalToSend();
   const nativeUSDCBalance = usdcBalanceRaw ? parseFloat(formatUnits(BigInt(usdcBalanceRaw), USDC_DECIMALS)) : 0;
   const nativeAvailable = tokenBalance ? parseFloat(formatUnits(tokenBalance, activeDecimals)) : 0;
-  const unifiedAvailable = gatewayBalances
-    .reduce((sum, b) => sum + parseFloat(b.balance || "0"), 0);
-  const totalUSDC = nativeUSDCBalance + unifiedAvailable;
+  const selectedGatewayBalances = gatewayBalances.filter((b) =>
+    selectedGatewaySources.includes(b.key)
+  );
+
+  // Ticked chains only — used to decide how much can actually be bridged.
+  const unifiedAvailable = selectedGatewayBalances.reduce(
+    (sum, b) => sum + parseFloat(b.balance || "0"),
+    0
+  );
+
+  // Every chain, ticked or not — used for display totals.
+  const unifiedTotal = gatewayBalances.reduce(
+    (sum, b) => sum + parseFloat(b.balance || "0"),
+    0
+  );
+
+  const totalUSDC = nativeUSDCBalance + unifiedTotal;
 
   const getNativeContribution = () => {
     if (fundingSource === "native") return Math.min(totalNeeded, nativeAvailable);
@@ -688,7 +853,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
   const needsBridge = (fundingSource === "unified" || fundingSource === "hybrid") && unifiedContribution > 0;
 
-  // ---------- Bridge + Split ----------
+  // ---------- Gateway Funding + Split ----------
   const bridgeAndSplit = async () => {
     const bail = (msg: string) => {
       toastError(msg);
@@ -696,102 +861,187 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       setStatusMessage("");
       setIsSubmitting(false);
     };
-    if (isCustomToken) return bail("Bridge is only supported for USDC. Please use USDC for bridging.");
-    if (!address) return bail("Wallet not connected");
-    const amountToBridge = unifiedContribution;
-    if (amountToBridge <= 0) return bail("No unified contribution needed");
 
-    const bestSource = getBestGatewaySource(amountToBridge, gatewayBalances);
-    if (!bestSource) return bail("No Gateway balance available on any supported chain.");
-
-    if (bestSource.balance < amountToBridge) {
-      return bail(`Insufficient balance on ${bestSource.label} (need ${amountToBridge.toFixed(6)}, have ${bestSource.balance.toFixed(6)})`);
+    if (isCustomToken) {
+      return bail("Gateway funding is only supported for USDC.");
     }
 
-    setGatewaySourceChain(bestSource.key as keyof typeof chainConfig);
+    if (!address) {
+      return bail("Wallet not connected");
+    }
 
-    if (bridgeSwitch.isMismatched) {
-      toastInfo(`Please switch your wallet to ${bestSource.label} to continue. Then click Review Split again.`);
-      setStatus("idle");
-      setStatusMessage("");
-      setIsSubmitting(false);
-      return;
+    const amountToBridge = unifiedContribution;
+
+    if (amountToBridge <= 0) {
+      return bail("No Gateway contribution needed");
+    }
+
+    const selectedSources = gatewayBalances.filter(
+      (b) =>
+        selectedGatewaySources.includes(b.key) &&
+        parseFloat(b.balance || "0") > 0
+    );
+
+    if (selectedSources.length === 0) {
+      return bail("Select at least one Gateway balance to fund from.");
+    }
+
+    const selectedTotal = selectedSources.reduce(
+      (sum, b) => sum + parseFloat(b.balance || "0"),
+      0
+    );
+
+    if (selectedTotal < amountToBridge) {
+      return bail(
+        `Selected Gateway balances are insufficient (need ${amountToBridge.toFixed(
+          6
+        )}, have ${selectedTotal.toFixed(6)})`
+      );
     }
 
     setIsBridging(true);
-    setBridgeProgress(`Preparing bridge from ${bestSource.label}...`);
-    setNetworkStatus("");
+    setBridgeProgress("Preparing Gateway funding...");
+    setNetworkStatus("Preparing Gateway funding...");
 
     try {
-      const amount = Math.ceil(amountToBridge * 1e6) / 1e6;
-      setBridgeProgress(`Bridging ${amount} USDC from ${bestSource.label} to Arc...`);
-      setNetworkStatus(`Bridging...`);
-
-      const { transferId } = await bridgeToArc(
-        address,
-        signTypedDataAsync,
-        bestSource.key as keyof typeof chainConfig,
-        amount,
-        (msg) => setBridgeProgress(msg)
+      const activeConnection = config.state.connections.get(
+        config.state.current
       );
 
-      setBridgeProgress(`Bridge submitted (ID: ${transferId}). Waiting for finality...`);
-      setNetworkStatus(`Waiting for bridge finality...`);
+      const provider = await activeConnection?.connector.getProvider();
 
-      const controller = new AbortController();
-      bridgeAbortRef.current = controller;
-      const result = await pollTransferStatus(transferId, 180000, controller.signal);
-      bridgeAbortRef.current = null;
-      if (result.status === "finalized" || result.status === "confirmed") {
-        toastSuccess(`Bridge completed! Transaction: ${result.transactionHash || transferId}`);
-        setNetworkStatus(`Bridge complete!`);
-        setBridgeTxHash(result.transactionHash || transferId);
-
-        invalidateGateway(bestSource.domainId);
-        invalidateWallet(5042002, USDC_ADDRESS);
-        invalidateGateway(26);
-
-        if (chainId !== 5042002) {
-          setNetworkStatus(`Switching back to Arc...`);
-          const switchToast = toastLoading(`Switching back to Arc...`);
-          try {
-            await switchChainAsync({ chainId: 5042002 });
-            toastSuccess(`Switched back to Arc`, { id: switchToast });
-            setNetworkStatus(`Connected to Arc`);
-            await new Promise(r => setTimeout(r, 2000));
-          } catch (err) {
-            toastError(`Please switch back to Arc manually`, { id: switchToast, duration: 10000 });
-            setNetworkStatus(`⚠️ Please switch to Arc manually`);
-          }
-        }
-
-        setNetworkStatus(`Refreshing balance...`);
-        await refetchBalance();
-        await executeSplitAfterBridge();
-      } else if (result.status === "pending") {
-        // Not a failure. A Gateway transfer cannot be cancelled once signed,
-        // so giving up on watching says nothing about whether the funds
-        // arrive. Calling it a failure invites a second bridge for money
-        // that is already moving, so the split is not run either.
-        setPendingBridge({ transferId, reason: result.reason });
-        setBridgeTxHash(transferId);
-        setNetworkStatus("Bridge still in progress");
-        setStatus("idle");
-        setStatusMessage("");
-        setIsSubmitting(false);
-        toastInfo(
-          result.reason === "stopped"
-            ? "Stopped watching. The bridge is still running, so your funds are still on their way."
-            : "The bridge is taking longer than usual. It is still running, so do not send it again."
-        );
-        return;
+      if (!provider) {
+        throw new Error("Unable to access the connected wallet provider.");
       }
+
+      const adapter = await createViemAdapterFromProvider({
+        provider,
+        getPublicClient: ({ chain }) =>
+          createPublicClient({
+            chain,
+            transport: http(
+              chain.id === chainConfig.ethereumSepolia.chainId
+                ? "https://ethereum-sepolia-rpc.publicnode.com"
+                : chain.rpcUrls.default.http[0]
+            ),
+          }),
+      });
+
+      const chainIdentifiers: Record<
+        GatewayFundingChain,
+        | "Arc_Testnet"
+        | "Base_Sepolia"
+        | "Ethereum_Sepolia"
+        | "Avalanche_Fuji"
+        | "Polygon_PoS_Amoy"
+      > = {
+        arc: "Arc_Testnet",
+        baseSepolia: "Base_Sepolia",
+        ethereumSepolia: "Ethereum_Sepolia",
+        avalancheFuji: "Avalanche_Fuji",
+        polygonAmoy: "Polygon_PoS_Amoy",
+      };
+
+      let remaining = amountToBridge;
+
+      const allocations = selectedSources
+        .map((source) => {
+          const available = parseFloat(source.balance || "0");
+          const amount = Math.min(available, remaining);
+
+          remaining -= amount;
+
+          return {
+            amount: amount.toFixed(6),
+            chain: chainIdentifiers[source.key],
+          };
+        })
+        .filter((allocation) => parseFloat(allocation.amount) > 0);
+
+      if (remaining > 0.0000001) {
+        throw new Error(
+          `Unable to allocate the full Gateway amount. Remaining: ${remaining.toFixed(
+            6
+          )} USDC`
+        );
+      }
+
+      setBridgeProgress(
+        `Funding ${amountToBridge.toFixed(6)} USDC from ${
+          allocations.length
+        } Gateway balance${allocations.length === 1 ? "" : "s"}...`
+      );
+      setNetworkStatus("Funding Arc wallet...");
+
+      const kit = new UnifiedBalanceKit({
+        environment: "testnet",
+        adapter,
+      });
+
+      const spendParams = {
+        from: {
+          adapter,
+          allocations,
+        },
+        to: {
+          adapter,
+          chain: "Arc_Testnet" as const,
+          recipientAddress: address,
+          useForwarder: true,
+        },
+        amount: amountToBridge.toFixed(6),
+        token: "USDC" as const,
+      };
+
+      const estimate = await kit.estimateSpend(spendParams);
+
+      setBridgeProgress(
+        "Confirm the Gateway funding transaction in your wallet..."
+      );
+      setNetworkStatus("Waiting for wallet confirmation...");
+
+      const result = await kit.spend(spendParams);
+
+      if (result.txHash) {
+        setBridgeTxHash(result.txHash as Address);
+      }
+
+      setBridgeProgress(
+        "Gateway funding submitted. Waiting for completion..."
+      );
+      setNetworkStatus("Waiting for Gateway funding...");
+
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      for (const source of selectedSources) {
+        invalidateGateway(source.domain);
+      }
+
+      invalidateGateway(chainConfig.arc.domainId);
+      invalidateWallet(5042002, USDC_ADDRESS);
+
+      setNetworkStatus("Refreshing balance...");
+      await refetchBalance();
+
+      setBridgeProgress("Gateway funding complete. Executing split...");
+      setNetworkStatus("Gateway funding complete");
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      await executeSplitAfterBridge();
     } catch (err: any) {
-      console.error(err);
-      toastError(err.message || "Bridge failed");
-      setNetworkStatus(`❌ ${err.message}`);
+      console.error("Gateway funding failed:", err);
+
+      const message =
+        err?.shortMessage ||
+        err?.details ||
+        err?.message ||
+        "Gateway funding failed";
+
+      toastError(message);
+      setNetworkStatus(`Gateway funding failed: ${message}`);
       setStatus("failed");
-      setStatusMessage(`Bridge failed: ${err.message}`);
+      setStatusMessage(`Gateway funding failed: ${message}`);
     } finally {
       setIsBridging(false);
       setBridgeProgress("");
@@ -898,6 +1148,71 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
     play("click");
   };
 
+  const executeCustomTokenSplit = async (
+    valid: Recipient[],
+    totalAmountWei: bigint
+  ) => {
+    if (!address) {
+      throw new Error("Wallet not connected");
+    }
+
+    if (!publicClient) {
+      throw new Error("Blockchain connection unavailable");
+    }
+
+    if (!isAddress(customTokenAddress)) {
+      throw new Error("Enter a valid token address");
+    }
+
+    const tokenAddress = customTokenAddress as Address;
+
+    const transfers = valid.map((recipient) => ({
+      to: getAddress(recipient.address),
+      amount: parseUnits(recipient.amount, activeDecimals),
+    }));
+
+    const allowance = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: "allowance",
+      args: [address, CUSTOM_TOKEN_BATCHER],
+    });
+
+    if (allowance < totalAmountWei) {
+      setStatus("confirming");
+      setStatusMessage(`Approve ${tokenSymbol} spending in your wallet...`);
+      play("confirm");
+
+      const approvalHash = await writeApprovalContractAsync({
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [CUSTOM_TOKEN_BATCHER, totalAmountWei],
+      });
+
+      setStatusMessage("Waiting for token approval...");
+
+      await publicClient.waitForTransactionReceipt({
+        hash: approvalHash,
+      });
+    }
+
+    setStatus("confirming");
+    setStatusMessage("Confirm batch transfer in your wallet...");
+    play("confirm");
+
+    await writeContractAsync({
+      address: CUSTOM_TOKEN_BATCHER,
+      abi: CUSTOM_TOKEN_BATCHER_ABI,
+      functionName: "batchTransfer",
+      args: [tokenAddress, transfers],
+    });
+
+    setStatus("broadcasting");
+    setStatusMessage("Broadcasting...");
+    play("await");
+  };
+
   const executeSplit = async () => {
     if (!pendingData || !address) return;
     const valid = pendingData.recipients.filter(r => r.address.trim() && r.amount.trim());
@@ -928,6 +1243,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
     play("start");
 
     try {
+      if (isCustomToken) {
+        await executeCustomTokenSplit(valid, totalAmountWei);
+        return;
+      }
+
       if (needsBridge) {
         setStatus("funding");
         setStatusMessage("Funding via Gateway...");
@@ -1086,7 +1406,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           <div className="flex flex-wrap gap-4 text-sm text-[#9C917E] mt-1">
             <span>wallet <span className="font-mono text-[#EDE3D0]">${nativeUSDCBalance.toFixed(2)}</span></span>
             <span className="text-[#6B5F4F]">|</span>
-            <span>gateway <span className="font-mono text-[#EDE3D0]">${unifiedAvailable.toFixed(2)}</span></span>
+            <span>gateway <span className="font-mono text-[#EDE3D0]">${unifiedTotal.toFixed(2)}</span></span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1310,27 +1630,77 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             </div>
           )}
 
-          {/* ----- GATEWAY BALANCE BREAKDOWN (when GATEWAY BALANCE or NATIVE/GATEWAY) ----- */}
+          {/* ----- GATEWAY BALANCE SOURCE SELECTOR ----- */}
           {(fundingSource === "unified" || fundingSource === "hybrid") && (
             <div className="mt-2 pt-2 border-t border-[rgba(242,177,52,0.16)]">
-              <div className="text-xs text-[#9C917E]">Gateway balances:</div>
-              {gatewayBalances.filter(b => b.domain !== 26).map((b) => {
-                let label = `Chain ${b.domain}`;
-                if (chainConfig) {
-                  const entry = Object.values(chainConfig).find(c => c.domainId === b.domain);
-                  if (entry) label = entry.label;
-                }
-                return (
-                  <div key={b.domain} className="flex justify-between text-xs font-mono">
-                    <span>{label}</span>
-                    <span className="text-[#EDE3D0]">{parseFloat(b.balance || "0").toFixed(6)} USDC</span>
-                  </div>
-                );
-              })}
-              <div className="flex justify-between text-xs font-mono border-t border-[rgba(242,177,52,0.16)] pt-1 mt-1">
-                <span className="text-[#9C917E]">Total Gateway</span>
-                <span className="text-[#F2B134]">{unifiedAvailable.toFixed(6)} USDC</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs text-[#9C917E]">
+                  Gateway balances to use:
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedGatewaySources(
+                      gatewayBalances.map((b) => b.key)
+                    )
+                  }
+                  className="text-[10px] font-mono text-amber hover:text-[#EDE3D0]"
+                >
+                  SELECT ALL
+                </button>
               </div>
+
+              <div className="space-y-1">
+                {gatewayBalances.map((b) => {
+                  const selected = selectedGatewaySources.includes(b.key);
+                  const amount = parseFloat(b.balance || "0");
+
+                  return (
+                    <button
+                      key={b.key}
+                      type="button"
+                      onClick={() => toggleGatewaySource(b.key)}
+                      className={`w-full flex items-center justify-between gap-2 rounded px-2 py-1.5 border text-xs font-mono transition ${
+                        selected
+                          ? "border-[rgba(242,177,52,0.35)] bg-[rgba(242,177,52,0.06)]"
+                          : "border-transparent bg-transparent opacity-60"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`w-3 h-3 shrink-0 rounded-sm border flex items-center justify-center ${
+                            selected
+                              ? "border-amber bg-amber text-[#15100B]"
+                              : "border-[#6B5F4F]"
+                          }`}
+                        >
+                          {selected && "✓"}
+                        </span>
+                        <span className="truncate">
+                          {chainConfig[b.key].label}
+                        </span>
+                      </span>
+
+                      <span className="shrink-0 text-[#EDE3D0]">
+                        {amount.toFixed(6)} USDC
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-between text-xs font-mono border-t border-[rgba(242,177,52,0.16)] pt-1 mt-2">
+                <span className="text-[#9C917E]">Selected Gateway</span>
+                <span className="text-[#F2B134]">
+                  {unifiedAvailable.toFixed(6)} USDC
+                </span>
+              </div>
+
+              {selectedGatewaySources.length === 0 && (
+                <div className="text-[11px] text-[#C4553D] mt-1">
+                  Select at least one Gateway balance.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1341,22 +1711,39 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <div className="text-sm text-[#9C917E] mt-1">
               You have USDC available on:
             </div>
-            {gatewayBalances.filter(b => b.domain !== 26 && parseFloat(b.balance) > 0).map(b => {
+
+            {gatewayBalances.map(b => {
+              const amt = parseFloat(b.balance || "0");
               let label = `Chain ${b.domain}`;
-              if (chainConfig) {
-                const entry = Object.values(chainConfig).find(c => c.domainId === b.domain);
-                if (entry) label = entry.label;
-              }
+              const entry = Object.values(chainConfig).find(c => c.domainId === b.domain);
+              if (entry) label = entry.label;
+
               return (
                 <div key={b.domain} className="flex justify-between text-sm font-mono">
-                  <span>{label}</span>
-                  <span>{parseFloat(b.balance).toFixed(6)} USDC</span>
+                  <span className={amt > 0 ? "" : "text-[#6B5F4F]"}>{label}</span>
+                  <span className={amt > 0 ? "text-[#EDE3D0]" : "text-[#6B5F4F]"}>
+                    {amt.toFixed(6)} USDC
+                  </span>
                 </div>
               );
             })}
-            {gatewayBalances.every(b => b.domain === 26 || parseFloat(b.balance) === 0) && (
-              <div className="text-sm text-[#9C917E]">No supported USDC balance detected.</div>
+
+            <div className="flex justify-between text-sm font-mono border-t border-[rgba(242,177,52,0.16)] pt-1 mt-2">
+              <span className="text-[#9C917E]">Total</span>
+              <span className="text-[#F2B134]">
+                {gatewayBalances.reduce(
+                  (s, b) => s + parseFloat(b.balance || "0"), 0
+                ).toFixed(6)}{" "}
+                USDC
+              </span>
+            </div>
+
+            {gatewayBalances.every(b => parseFloat(b.balance || "0") === 0) && (
+              <div className="text-sm text-[#9C917E] mt-1">
+                No supported USDC balance detected.
+              </div>
             )}
+
             <button
               onClick={() => {
                 toastInfo("Deposit to Unified Balance");
@@ -1604,70 +1991,112 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         </div>
 
         {status !== "idle" && (
-          <div className="mt-3 p-2 border border-[rgba(242,177,52,0.16)] rounded bg-[#241B14]">
-            <div className="flex items-center gap-2">
-              <span className={`font-mono text-xs ${getStatusColor()}`}>
-                {status === "building" && "◌ BUILDING"}
-                {status === "funding" && "◌ FUNDING"}
-                {status === "confirming" && "◌ CONFIRMING"}
-                {status === "broadcasting" && "◌ BROADCASTING"}
-                {status === "confirmed" && "✓ CONFIRMED"}
-                {status === "partial" && "⚠ PARTIALLY SENT"}
-                {status === "failed" && "✗ FAILED"}
-              </span>
-              <span className="text-[#9C917E] text-xs">{statusMessage}</span>
-            </div>
-            {txHash && (
-              <div className="text-xs text-amber mt-1">
-                <a href={`https://testnet.arcscan.app/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
-                  View on Explorer
-                </a>
-              </div>
-            )}
-            {bridgeTxHash && (
-              <div className="text-xs text-amber mt-1">
-                Bridge tx: <a href={`https://testnet.arcscan.app/tx/${bridgeTxHash}`} target="_blank" rel="noopener noreferrer" className="underline">
-                  {bridgeTxHash.slice(0, 10)}…
-                </a>
-              </div>
-            )}
-            {txError && <div className="text-[#C4553D] text-xs mt-1">{txError}</div>}
-            {failedRecipients.length > 0 && (
-              <div className="mt-2 text-xs">
-                <div className="text-[#C4553D] font-mono mb-1">
-                  These transfers reverted — the money was not sent:
-                </div>
-                <ul className="space-y-0.5">
-                  {failedRecipients.map((r, i) => (
-                    <li key={`${r.address}-${i}`} className="font-mono text-[#9C917E]">
-                      {r.address.slice(0, 6)}…{r.address.slice(-4)} · {r.amount} {tokenSymbol}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setValue(
-                      "recipients",
-                      failedRecipients.map(r => ({ address: r.address, amount: r.amount }))
-                    );
-                    setValue("totalAmount", "");
-                    setIsEqualMode(false);
-                    setFailedRecipients([]);
-                    setStatus("idle");
-                    setStatusMessage("");
-                    setTxHash(null);
-                  }}
-                  className="mt-2 underline text-[#F2B134] hover:text-[#EDE3D0] font-mono"
-                >
-                  Retry just these — the rest were already paid
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+         <div className="mt-3 p-3 border border-[rgba(242,177,52,0.16)] rounded bg-[#241B14]">
+           <div className="flex items-center gap-2">
+             <span className={`font-mono text-xs ${getStatusColor()} inline-flex items-center gap-1.5`}>
+               {status === "building" && (
+                 <>
+                   <LoaderCircle size={13} className="animate-spin" />
+                   BUILDING
+                 </>
+               )}
+               {status === "funding" && (
+                 <>
+                   <LoaderCircle size={13} className="animate-spin" />
+                   FUNDING
+                 </>
+               )}
+               {status === "confirming" && (
+                 <>
+                   <LoaderCircle size={13} className="animate-spin" />
+                   CONFIRMING
+                 </>
+               )}
+               {status === "broadcasting" && (
+                 <>
+                   <LoaderCircle size={13} className="animate-spin" />
+                   BROADCASTING
+                 </>
+               )}
+               {status === "confirmed" && (
+                 <>
+                   <CheckCircle size={13} />
+                   CONFIRMED
+                 </>
+               )}
+               {status === "partial" && (
+                 <>
+                   <AlertTriangle size={13} />
+                   PARTIALLY SENT
+                 </>
+               )}
+               {status === "failed" && (
+                 <>
+                   <XCircle size={13} />
+                   FAILED
+                 </>
+               )}
+             </span>
 
-        <div className="flex gap-3 mt-4">
+             <span className="text-[#EDE3D0] text-xs">
+               {statusMessage || networkStatus || "Processing..."}
+             </span>
+           </div>
+
+           {txHash && (
+             <div className="text-xs text-amber mt-1">
+               <a href={`https://testnet.arcscan.app/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+                 View on Explorer
+               </a>
+             </div>
+           )}
+
+           {bridgeTxHash && (
+             <div className="text-xs text-amber mt-1">
+               Bridge tx: <a href={`https://testnet.arcscan.app/tx/${bridgeTxHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+                 {bridgeTxHash.slice(0, 10)}…
+               </a>
+             </div>
+           )}
+
+           {txError && <div className="text-[#C4553D] text-xs mt-1">{txError}</div>}
+
+           {failedRecipients.length > 0 && (
+             <div className="mt-2 text-xs">
+               <div className="text-[#C4553D] font-mono mb-1">
+                 These transfers reverted — the money was not sent:
+               </div>
+               <ul className="space-y-0.5">
+                 {failedRecipients.map((r, i) => (
+                   <li key={`${r.address}-${i}`} className="font-mono text-[#9C917E]">
+                     {r.address.slice(0, 6)}…{r.address.slice(-4)} · {r.amount} {tokenSymbol}
+                   </li>
+                 ))}
+               </ul>
+               <button
+                 type="button"
+                 onClick={() => {
+                   setValue(
+                     "recipients",
+                     failedRecipients.map(r => ({ address: r.address, amount: r.amount }))
+                   );
+                   setValue("totalAmount", "");
+                   setIsEqualMode(false);
+                   setFailedRecipients([]);
+                   setStatus("idle");
+                   setStatusMessage("");
+                   setTxHash(null);
+                 }}
+                 className="mt-2 underline text-[#F2B134] hover:text-[#EDE3D0] font-mono"
+               >
+                 Retry just these — the rest were already paid
+               </button>
+             </div>
+           )}
+         </div>
+       )}
+
+       <div className="flex gap-3 mt-4">
           <button
             type="button"
             onClick={() => {

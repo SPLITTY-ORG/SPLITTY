@@ -4,20 +4,23 @@ import { useInvalidateBalances } from "../hooks/useBalances";
 
 export function GatewayStatus() {
   const { invalidateGateway } = useInvalidateBalances();
-  const arc = useGatewayBalance(26);
-  const base = useGatewayBalance(6);
-  const eth = useGatewayBalance(0);
+
+  const arc       = useGatewayBalance(chainConfig.arc.domainId);
+  const base      = useGatewayBalance(chainConfig.baseSepolia.domainId);
+  const eth       = useGatewayBalance(chainConfig.ethereumSepolia.domainId);
+  const avalanche = useGatewayBalance(chainConfig.avalancheFuji.domainId);
+  const polygon   = useGatewayBalance(chainConfig.polygonAmoy.domainId);
 
   const balances = [
-    { domain: 26, label: "Arc", balance: arc.data },
-    { domain: 6, label: "Base Sepolia", balance: base.data },
-    { domain: 0, label: "Ethereum Sepolia", balance: eth.data },
+    { key: "arc"             as const, domain: chainConfig.arc.domainId,             label: chainConfig.arc.label,             balance: arc.data },
+    { key: "baseSepolia"     as const, domain: chainConfig.baseSepolia.domainId,     label: chainConfig.baseSepolia.label,     balance: base.data },
+    { key: "ethereumSepolia" as const, domain: chainConfig.ethereumSepolia.domainId, label: chainConfig.ethereumSepolia.label, balance: eth.data },
+    { key: "avalancheFuji"   as const, domain: chainConfig.avalancheFuji.domainId,   label: chainConfig.avalancheFuji.label,   balance: avalanche.data },
+    { key: "polygonAmoy"     as const, domain: chainConfig.polygonAmoy.domainId,     label: chainConfig.polygonAmoy.label,     balance: polygon.data },
   ];
 
   const refresh = () => {
-    invalidateGateway(26);
-    invalidateGateway(6);
-    invalidateGateway(0);
+    balances.forEach(b => invalidateGateway(b.domain));
   };
 
   return (
@@ -29,12 +32,19 @@ export function GatewayStatus() {
         </button>
       </div>
       <div className="space-y-1 text-sm font-mono">
-        {balances.map((b) => (
-          <div key={b.domain} className="flex justify-between">
-            <span className="text-[#9C917E]">{b.label}</span>
-            <span className="text-[#EDE3D0]">{parseFloat(b.balance || "0").toFixed(6)} USDC</span>
-          </div>
-        ))}
+        {balances.map((b) => {
+          const amount = parseFloat(b.balance || "0");
+          return (
+            <div key={b.key} className="flex justify-between">
+              <span className={amount > 0 ? "text-[#9C917E]" : "text-[#6B5F4F]"}>
+                {b.label}
+              </span>
+              <span className={amount > 0 ? "text-[#EDE3D0]" : "text-[#6B5F4F]"}>
+                {amount.toFixed(6)} USDC
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -82,7 +82,17 @@ async function fetchGatewayBalance(
   if (!response.ok) throw new Error("Failed to fetch Gateway balance");
   const json = await response.json();
   const balance = json.balances?.find((b: any) => b.domain === domainId);
-  return balance ? balance.balance : "0";
+  const value = balance?.balance;
+
+  if (typeof value !== "string" && typeof value !== "number") {
+    return "0";
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue) && numericValue >= 0
+    ? String(numericValue)
+    : "0";
 }
 
 export function useWalletBalance(tokenAddress: Address, chainId?: number) {
