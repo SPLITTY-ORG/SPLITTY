@@ -357,7 +357,7 @@ function App() {
     <div className="min-h-screen bg-[#15100B] text-[#EDE3D0] p-4 md:p-6">
       <Toaster position="top-right" toastOptions={{ duration: 5000 }} />
       <div className="max-w-7xl mx-auto">
-        <nav className="flex flex-wrap items-center justify-between gap-y-2 border-b border-[rgba(242,177,52,0.16)] pb-2 mb-6">
+        <nav className="flex flex-wrap items-center justify-between gap-y-2 border-b border-[rgba(242,177,52,0.16)] pb-2 mb-6 gap-x-2">
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <SplittyLogo size={28} />
@@ -375,11 +375,11 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-6">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
               {[
-                { id: "split", label: "SPLIT" },
-                { id: "gateway", label: "FUND GATEWAY" },
-                { id: "history", label: "HISTORY" },
+                { id: "split", label: "SPLIT", mobileLabel: "SPLIT" },
+                { id: "gateway", label: "FUND GATEWAY", mobileLabel: "FUND" },
+                { id: "history", label: "HISTORY", mobileLabel: "HISTORY" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -387,13 +387,14 @@ function App() {
                     setActiveTab(tab.id as Tab);
                     play("tab");
                   }}
-                  className={`px-3 py-1.5 text-xs font-mono transition border-b-2 ${
+                  className={`whitespace-nowrap px-2.5 py-1.5 text-xs font-mono transition border-b-2 ${
                     activeTab === tab.id
                       ? "border-[#F2B134] text-[#EDE3D0]"
                       : "border-transparent text-[#9C917E] hover:text-[#EDE3D0]"
                   }`}
                 >
-                  {tab.label}
+                  <span className="sm:hidden">{tab.mobileLabel}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -408,13 +409,12 @@ function App() {
                   {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
                 </button>
 
-                <div className="flex items-center gap-2 bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded-full px-3 py-1.5">
+                <div className="flex items-center gap-2 bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded-full px-2.5 py-1.5 sm:px-3">
                   <button
                     type="button"
                     disabled={!address}
                     onClick={async () => {
                       if (!address) return;
-
                       try {
                         await navigator.clipboard.writeText(address);
                         setStatusMessage("Wallet address copied.");
@@ -432,17 +432,17 @@ function App() {
                         ? `${address.slice(0, 6)}…${address.slice(-4)}`
                         : "CREATING WALLET…"}
                     </span>
-
-                    <span className="sm:hidden text-xs font-mono text-[#EDE3D0]">
-                      {address ? `${address.slice(0, 4)}…` : "CREATING…"}
+                    <span className="sm:hidden text-[10px] font-mono text-[#EDE3D0]">
+                      {address ? `${address.slice(0, 4)}…${address.slice(-3)}` : "…"}
                     </span>
                   </button>
-
                   <button
                     onClick={handleLogout}
-                    className="text-[#9C917E] hover:text-[#C4553D] text-xs transition"
+                    className="text-[#9C917E] hover:text-[#C4553D] transition"
+                    title="Disconnect"
                   >
-                    disconnect
+                    <span className="hidden sm:inline text-xs">disconnect</span>
+                    <span className="sm:hidden text-[10px]">✕</span>
                   </button>
                 </div>
               </div>
@@ -463,7 +463,7 @@ function App() {
           <>
             {activeTab === "split" && (
               <div className="app-grid">
-                <div className="space-y-6">
+                <div className="space-y-6 min-w-0">
                   <SplitForm onGoToFundGateway={() => setActiveTab("gateway")} />
                 </div>
 
