@@ -954,7 +954,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             chain,
             transport: http(
               chain.id === chainConfig.ethereumSepolia.chainId
-                ? "https://ethereum-sepolia-rpc.publicnode.com"
+                ? "https://rpc.sepolia.org"
                 : chain.rpcUrls.default.http[0]
             ),
           }),

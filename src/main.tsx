@@ -25,7 +25,7 @@ const config = createConfig({
   transports: {
     [arcTestnet.id]: http(import.meta.env.VITE_ARC_RPC_URL),
     [baseSepolia.id]: http("https://sepolia.base.org"),
-    [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
+    [sepolia.id]: http("https://rpc.sepolia.org"),
   },
 });
 
