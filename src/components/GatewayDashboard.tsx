@@ -36,9 +36,6 @@ const GATEWAY_WALLET_ABI = [
   },
 ] as const;
 
-// Singleton kit instance — no constructor args needed.
-const kit = new UnifiedBalanceKit();
-
 export function GatewayDashboard() {
   const { address, chainId, connector } = useAccount();
 
@@ -162,30 +159,84 @@ export function GatewayDashboard() {
   const getAdapter = async () => {
     if (!connector) throw new Error("Wallet not connected");
     const provider = await connector.getProvider() as import("viem").EIP1193Provider;
-    return await createViemAdapterFromProvider({ provider });
+    return createViemAdapterFromProvider({
+      provider,
+      getPublicClient: ({ chain }) =>
+        createPublicClient({
+          chain,
+          transport: http(
+            chain.id === chainConfig.ethereumSepolia.chainId
+              ? "https://ethereum-sepolia-rpc.publicnode.com"
+              : chain.rpcUrls.default.http[0]
+          ),
+        }),
+    });
   };
 
 
 
 
-  const handleFastDeposit = async () => {
-    play("confirm");
-    if (!address) { toastError("Connect wallet first"); return; }
+  const handleEstimateFastDeposit = async () => {
+    play("click");
+    if (!address) {
+      toastError("Connect wallet first");
+      return;
+    }
+
     const amt = parseFloat(fastDepositAmount);
-    if (!amt || amt <= 0) { toastError("Enter a valid amount"); return; }
+    if (!amt || amt <= 0) {
+      toastError("Enter a valid amount");
+      return;
+    }
 
-    setIsFastDepositing(true);
-    const depositToast = toastLoading(
-      `Fast depositing ${fastDepositAmount} USDC from ${fastSourceConfig.label} to ${fastDestinationConfig.label}...`
-    );
-
+    setIsEstimatingFastDeposit(true);
     try {
       const adapter = await getAdapter();
+      const kit = new UnifiedBalanceKit({ environment: "testnet", adapter });
 
-      const result = await kit.deposit({
+      const estimate = await kit.estimateDeposit({
         from: { adapter, chain: fastDepositRoute.sourceChain },
         amount: fastDepositAmount,
         token: "USDC",
+        to: { chain: fastDepositRoute.destinationChain },
+        config: { transferSpeed: "FAST" },
+      });
+
+      setFastDepositEstimate(estimate);
+      toastSuccess("Fast Deposit estimate ready");
+    } catch (err: any) {
+      console.error("Fast Deposit estimate failed:", err);
+      toastError(err?.message || "Failed to estimate Fast Deposit");
+    } finally {
+      setIsEstimatingFastDeposit(false);
+    }
+  };
+
+  const handleExecuteFastDeposit = async () => {
+    play("confirm");
+    if (!address) {
+      toastError("Connect wallet first");
+      return;
+    }
+
+    if (!fastDepositEstimate) {
+      toastError("Estimate the Fast Deposit first");
+      return;
+    }
+
+    setIsFastDepositing(true);
+
+    try {
+      const adapter = await getAdapter();
+      const kit = new UnifiedBalanceKit({ environment: "testnet", adapter });
+
+      const depositToast = toastLoading(
+        `Fast depositing ${fastDepositAmount} USDC from ${fastSourceConfig.label} to ${fastDestinationConfig.label}...`
+      );
+
+      const result = await kit.deposit({
+        ...fastDepositEstimate,
+        from: { adapter, chain: fastDepositRoute.sourceChain },
       });
 
       toast.dismiss(depositToast);
@@ -264,9 +315,6 @@ export function GatewayDashboard() {
       setIsFastDepositing(false);
     }
   };
-
-  const handleEstimateFastDeposit = handleFastDeposit;
-  const handleExecuteFastDeposit = handleFastDeposit;
 
   const handleDeposit = async () => {
     play("confirm");
