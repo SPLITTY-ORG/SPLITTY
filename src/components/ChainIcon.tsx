@@ -3,44 +3,87 @@ import {
   NetworkEthereum,
   NetworkAvalancheFuji,
   NetworkPolygonAmoy,
-  NetworkOptimism,
-  NetworkArbitrumOne,
 } from "@web3icons/react";
 
 interface ChainIconProps {
   chainKey: string;
-  size?: number;
+  size?: "sm" | "md";
+  variant?: "color" | "mono";
   className?: string;
 }
 
-export function ChainIcon({ chainKey, size = 16, className = "" }: ChainIconProps) {
-  const props = { size, className: `shrink-0 ${className}`.trim() };
+const CHIP_CONFIG = {
+  sm: { chip: 20, icon: 11 },
+  md: { chip: 24, icon: 13 },
+} as const;
 
-  switch (chainKey) {
-    case "arc":
-      return (
-        <span
-          style={{ width: size, height: size, fontSize: size * 0.55 }}
-          className="inline-flex items-center justify-center rounded-full bg-[#F2B134] text-[#0D0B09] font-black leading-none shrink-0"
-        >
-          A
-        </span>
-      );
-    case "baseSepolia":
-    case "base":
-      return <NetworkBase {...props} />;
-    case "ethereumSepolia":
-    case "eth":
-      return <NetworkEthereum {...props} />;
-    case "avalancheFuji":
-      return <NetworkAvalancheFuji {...props} />;
-    case "polygonAmoy":
-      return <NetworkPolygonAmoy {...props} />;
-    case "optimismSepolia":
-      return <NetworkOptimism {...props} />;
-    case "arbitrumSepolia":
-      return <NetworkArbitrumOne {...props} />;
-    default:
-      return null;
-  }
+// Arc mark (single-path) — web3icons does not ship Arc yet.
+const ARC_PATH =
+  "M0 171C1.39327 129.136 8.52567 90.067 20.4481 59.6871C35.5477 21.1972 57.4057 0 81.9919 0C106.578 0 128.433 21.1972 143.536 59.6871C151.391 79.7058 157.17 103.491 160.594 129.366C160.9 131.677 161.161 134.026 161.428 136.369C161.515 136.514 161.568 136.649 161.55 136.758C161.55 136.758 163.562 149.265 163.99 171H163.763C160.778 168.562 125.578 141.038 67.2282 149.007C68.1086 139.181 69.3194 129.62 70.8835 120.456C70.9634 119.987 71.0558 119.535 71.1373 119.07C94.0233 118.383 114.055 121.028 129.416 124.494C129.359 124.131 129.311 123.758 129.253 123.397C126.095 103.83 121.437 85.9161 115.43 70.6073C105.61 45.576 92.7953 30.0239 81.9919 30.0239C71.189 30.0239 58.3744 45.576 48.554 70.6073C46.1769 76.6621 44.0128 83.1192 42.0721 89.9301C39.3438 99.4735 37.0517 109.704 35.2212 120.455C32.5117 136.331 30.8189 153.358 30.1954 171H0Z";
+
+export function ChainIcon({
+  chainKey,
+  size = "md",
+  variant = "mono",
+  className = "",
+}: ChainIconProps) {
+  const { chip, icon } = CHIP_CONFIG[size];
+  const iconVariant = variant === "mono" ? "mono" : "branded";
+
+  const chipClass =
+    `inline-flex items-center justify-center rounded-full shrink-0 ${className}`.trim();
+  const chipStyle = {
+    width: chip,
+    height: chip,
+    background: "#29221A",
+    border: "0.5px solid #3A2F22",
+    color: "#9C917E",
+  };
+
+  const renderIcon = () => {
+    const baseProps = { size: icon, variant: iconVariant };
+
+    switch (chainKey) {
+      case "arc": {
+        // Preserve Arc's native 164:171 aspect ratio inside the chip.
+        const w = icon * (164 / 171);
+        const h = icon;
+        return (
+          <svg
+            width={w}
+            height={h}
+            viewBox="0 0 164 171"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d={ARC_PATH}
+              fill={variant === "mono" ? "currentColor" : "#1B3158"}
+            />
+          </svg>
+        );
+      }
+      case "baseSepolia":
+      case "base":
+        return <NetworkBase {...baseProps} />;
+      case "ethereumSepolia":
+      case "eth":
+        return <NetworkEthereum {...baseProps} />;
+      case "avalancheFuji":
+        return <NetworkAvalancheFuji {...baseProps} />;
+      case "polygonAmoy":
+        return <NetworkPolygonAmoy {...baseProps} />;
+      default:
+        return null;
+    }
+  };
+
+  const content = renderIcon();
+  if (!content) return null;
+
+  return (
+    <span className={chipClass} style={chipStyle}>
+      {content}
+    </span>
+  );
 }

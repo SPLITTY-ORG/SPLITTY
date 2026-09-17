@@ -1510,7 +1510,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               }}
               className={`network-pill ${net.active ? "network-pill-active" : "network-pill-inactive"} cursor-pointer`}
             >
-              <ChainIcon chainKey={net.key} size={16} />
+              <ChainIcon chainKey={net.key} size="md" />
               {net.active && <Check size={12} className="text-[#F2B134]" />}
               <span>{net.label}</span>
             </div>
@@ -1766,7 +1766,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                         >
                           {selected && <Check size={12} className="inline-block" />}
                         </span>
-                        <ChainIcon chainKey={b.key} size={13} />
+                        <ChainIcon chainKey={b.key} size="sm" />
                         <span className="truncate">
                           {chainConfig[b.key].label}
                         </span>
