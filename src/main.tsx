@@ -6,7 +6,7 @@ import { injected } from "@wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { arcTestnet } from "./chains/arcTestnet";
-import { baseSepolia, sepolia } from "viem/chains";
+import { baseSepolia, sepolia, optimismSepolia, avalancheFuji, polygonAmoy } from "viem/chains";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import App from "./App";
 import "./index.css";
@@ -20,12 +20,15 @@ const getWalletSession = (): "privy" | "external" | null => {
 };
 
 const config = createConfig({
-  chains: [arcTestnet, baseSepolia, sepolia],
+  chains: [arcTestnet, baseSepolia, sepolia, optimismSepolia, avalancheFuji, polygonAmoy],
   connectors: [injected()],
   transports: {
     [arcTestnet.id]: http(import.meta.env.VITE_ARC_RPC_URL),
     [baseSepolia.id]: http("https://sepolia.base.org"),
     [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
+    [optimismSepolia.id]: http("https://sepolia.optimism.io"),
+    [avalancheFuji.id]: http("https://api.avax-test.network/ext/bc/C/rpc"),
+    [polygonAmoy.id]: http("https://rpc-amoy.polygon.technology"),
   },
 });
 
@@ -45,7 +48,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             },
           },
           defaultChain: arcTestnet,
-          supportedChains: [arcTestnet, baseSepolia, sepolia],
+          supportedChains: [arcTestnet, baseSepolia, sepolia, optimismSepolia, avalancheFuji, polygonAmoy],
         }}
       >
         <QueryClientProvider client={queryClient}>
