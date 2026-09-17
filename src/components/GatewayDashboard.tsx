@@ -512,7 +512,7 @@ export function GatewayDashboard() {
             return (
               <div key={b.domain} className="receipt-row text-sm py-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
                 <span className="receipt-address min-w-0 truncate flex items-center gap-1.5">
-                  {chainKey && <ChainIcon chainKey={chainKey} size={13} />}
+                  {chainKey && <ChainIcon chainKey={chainKey} size="sm" />}
                   {chainLabel}
                 </span>
                 <span className="receipt-amount shrink-0">{getDisplayBalance(b.balance)} USDC</span>
@@ -547,10 +547,10 @@ export function GatewayDashboard() {
               {depositMode === "fast" ? (
                 <>
                   <span className="truncate min-w-0 flex items-center gap-1.5">
-                    <ChainIcon chainKey={fastDepositRoute?.from ?? ""} size={14} />
+                    <ChainIcon chainKey={fastDepositRoute?.from ?? ""} size="md" />
                     {fastSourceConfig.label}
                     <ArrowRight size={12} className="shrink-0" />
-                    <ChainIcon chainKey={fastDepositRoute?.to ?? ""} size={14} />
+                    <ChainIcon chainKey={fastDepositRoute?.to ?? ""} size="md" />
                     {fastDestinationConfig.label}
                   </span>
                   <span className="flex items-center gap-1 text-[#F2B134] shrink-0">
@@ -560,7 +560,7 @@ export function GatewayDashboard() {
                 </>
               ) : (
                 <span className="truncate flex items-center gap-1.5">
-                  <ChainIcon chainKey={depositChain} size={14} />
+                  <ChainIcon chainKey={depositChain} size="md" />
                   {chainConfig[depositChain].label}
                   <ArrowRight size={12} className="shrink-0" />
                   Gateway
@@ -594,7 +594,7 @@ export function GatewayDashboard() {
                       : "text-[#EDE3D0]"
                   }`}
                 >
-                  <span className="flex items-center gap-1.5"><ChainIcon chainKey={key} size={14} />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
+                  <span className="flex items-center gap-1.5"><ChainIcon chainKey={key} size="md" />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
                   <span className="text-xs text-[#6B5F4F]">standard</span>
                 </button>
               ))}
@@ -901,7 +901,7 @@ export function GatewayDashboard() {
                 <option key={key} value={key}>{chainConfig[key].label}</option>
               ))}
             </select>
-            <span className="text-[#9C917E] text-sm shrink-0 flex items-center gap-1.5"><ArrowRight size={12} /><ChainIcon chainKey="arc" size={14} /> Arc</span>
+            <span className="text-[#9C917E] text-sm shrink-0 flex items-center gap-1.5"><ArrowRight size={12} /><ChainIcon chainKey="arc" size="md" /> Arc</span>
           </div>
           <div className="flex gap-2 min-w-0 items-center">
             <input
