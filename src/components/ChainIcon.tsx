@@ -3,6 +3,7 @@ import {
   NetworkEthereum,
   NetworkAvalancheFuji,
   NetworkPolygonAmoy,
+  NetworkOptimism,
 } from "@web3icons/react";
 
 interface ChainIconProps {
@@ -45,7 +46,6 @@ export function ChainIcon({
 
     switch (chainKey) {
       case "arc": {
-        // Preserve Arc's native 164:171 aspect ratio inside the chip.
         const w = icon * (164 / 171);
         const h = icon;
         return (
@@ -73,6 +73,8 @@ export function ChainIcon({
         return <NetworkAvalancheFuji {...baseProps} />;
       case "polygonAmoy":
         return <NetworkPolygonAmoy {...baseProps} />;
+      case "opSepolia":
+        return <NetworkOptimism {...baseProps} />;
       default:
         return null;
     }
