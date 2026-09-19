@@ -140,28 +140,48 @@ function SkeletonRow() {
   );
 }
 
+const PAGE_SIZE = 50;
+
 export function History() {
   const { address } = useAccount();
   const [records, setRecords] = useState<TxRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (pageIndex = 0, append = false) => {
     if (!address) return;
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
     const { data, error } = await supabase
       .from("transaction_history")
       .select("*")
       .eq("wallet_address", address)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-    if (!error && data) setRecords(data as TxRecord[]);
+    if (!error && data) {
+      setRecords((prev) => append ? [...prev, ...data as TxRecord[]] : data as TxRecord[]);
+      setHasMore(data.length === PAGE_SIZE);
+    }
     setLoading(false);
     setRefreshing(false);
+    setLoadingMore(false);
   }, [address]);
+
+  const handleLoadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    setLoadingMore(true);
+    fetchHistory(next, true);
+  };
 
   useEffect(() => {
     setLoading(true);
-    fetchHistory();
+    setPage(0);
+    fetchHistory(0, false);
 
     if (!address) return;
 
@@ -171,7 +191,7 @@ export function History() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "transaction_history", filter: `wallet_address=eq.${address}` },
-        () => { fetchHistory(); }
+        () => { fetchHistory(0, false); }
       )
       .subscribe();
 
@@ -180,7 +200,8 @@ export function History() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchHistory();
+    setPage(0);
+    fetchHistory(0, false);
   };
 
   return (
@@ -210,8 +231,7 @@ export function History() {
           </div>
         )}
 
-        {!loading &&
-          records.map((record) => {
+        {!loading && records.map((record) => {
             const meta = EVENT_META[record.event_type];
             if (!meta) return null;
             const Icon = meta.icon;
@@ -246,6 +266,18 @@ export function History() {
               </div>
             );
           })}
+
+        {!loading && hasMore && (
+          <div className="flex justify-center py-4">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="font-mono text-xs text-[#9C917E] hover:text-[#EDE3D0] transition disabled:opacity-50"
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
