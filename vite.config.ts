@@ -17,6 +17,6 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    allowedHosts: ['ibf87k1u9lh3nl2t4r0hx.preview.studio.arc.io'],
+    allowedHosts: ['.preview.studio.arc.io'],
   },
 });
