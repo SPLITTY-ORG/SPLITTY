@@ -1,4 +1,4 @@
-import { chainConfig } from "../config/gateway";
+import { chainConfig, IS_MAINNET, BRIDGE_SOURCE_CHAIN_KEYS } from "../config/gateway.active";
 
 export interface GatewaySource {
   key: string;
@@ -26,30 +26,17 @@ export function getBestGatewaySource(
   // Build list of available chains from chainConfig or fallback
   let chains: GatewaySource[] = [];
 
-  if (chainConfig && typeof chainConfig === 'object') {
-    const entries = Object.entries(chainConfig)
-      .filter(([key, val]) => val && val.domainId !== undefined && val.domainId !== 26)
-      .map(([key, val]) => ({
-        key,
-        domainId: val.domainId,
-        label: val.label || key,
-        balance: parseFloat(gatewayBalances.find(b => b.domain === val.domainId)?.balance || "0"),
-        gasCost: GAS_COST_ESTIMATE[val.domainId] || 0.001,
-      }));
-    chains = entries;
-  }
-
-  // Fallback if chainConfig missing
-  if (chains.length === 0) {
-    const fallback = [
-      { key: 'baseSepolia', domainId: 6, label: 'Base Sepolia', gasCost: 0.0005 },
-      { key: 'ethereumSepolia', domainId: 0, label: 'Ethereum Sepolia', gasCost: 0.001 },
-    ];
-    chains = fallback.map(c => ({
-      ...c,
-      balance: parseFloat(gatewayBalances.find(b => b.domain === c.domainId)?.balance || "0"),
-    }));
-  }
+  // Use only bridge source chains (excludes Arc itself, which is the destination)
+  chains = (BRIDGE_SOURCE_CHAIN_KEYS as readonly string[]).map((key) => {
+    const val = chainConfig[key as keyof typeof chainConfig];
+    return {
+      key,
+      domainId: val.domainId as number,
+      label: val.label,
+      balance: parseFloat(gatewayBalances.find(b => b.domain === val.domainId)?.balance || "0"),
+      gasCost: GAS_COST_ESTIMATE[val.domainId as number] ?? (IS_MAINNET ? 0.001 : 0.0005),
+    };
+  }).filter(c => c.domainId != null);
 
   // Filter out chains with zero or negative balance
   const positive = chains.filter(c => c.balance > 0);

@@ -10,7 +10,7 @@ import {
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import toast from "react-hot-toast";
 import { ChevronDown } from "lucide-react";
-import { GATEWAY_WALLET_ADDRESS, chainConfig, CHAIN_KEYS, type ChainKey } from "../config/gateway";
+import { GATEWAY_WALLET_ADDRESS, chainConfig, CHAIN_KEYS, type ChainKey } from "../config/gateway.active";
 import { ChainIcon } from "./ChainIcon";
 
 const GATEWAY_WALLET_ABI = [
@@ -60,7 +60,7 @@ function ChainPicker({ value, onChange }: ChainPickerProps) {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-lg border border-[#3A2F22] bg-[#1D1712] px-3 py-2 text-sm text-[#EDE3D0] transition hover:border-[rgba(242,177,52,0.4)] focus:outline-none"
       >
-        <ChainIcon chainKey={value} size="sm" />
+        <ChainIcon iconKey={chainConfig[value].iconKey} size="sm" />
         <span className="font-mono text-xs">
           {selected.label}{" "}
           <span className="text-[#6B5F4F]">(Gateway)</span>
@@ -86,7 +86,7 @@ function ChainPicker({ value, onChange }: ChainPickerProps) {
                   active ? "bg-[#29221A]" : ""
                 }`}
               >
-                <ChainIcon chainKey={key} size="sm" />
+                <ChainIcon iconKey={chainConfig[key].iconKey} size="sm" />
                 <span className="font-mono text-xs text-[#EDE3D0]">
                   {cfg.label}{" "}
                   <span className="text-[#6B5F4F]">(Gateway)</span>

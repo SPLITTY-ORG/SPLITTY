@@ -13,7 +13,9 @@ import {
   GATEWAY_BALANCE_CHAIN_KEYS,
   FAST_DEPOSIT_ROUTES,
   GATEWAY_WALLET_ADDRESS,
-} from "../config/gateway";
+  GATEWAY_ENV,
+  IS_MAINNET,
+} from "../config/gateway.active";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
 import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb, RefreshCw, ChevronUp, ChevronDown, ArrowRight, LoaderCircle } from "lucide-react";
@@ -75,7 +77,9 @@ export function GatewayDashboard() {
     };
   }, [depositRouteOpen]);
 
-  const [depositChain, setDepositChain] = useState<keyof typeof chainConfig>("arc");
+  const [depositChain, setDepositChain] = useState<keyof typeof chainConfig>(
+    CHAIN_KEYS[0] as keyof typeof chainConfig
+  );
   const [isDepositing, setIsDepositing] = useState(false);
   const [isFastDepositing, setIsFastDepositing] = useState(false);
   const [isEstimatingFastDeposit, setIsEstimatingFastDeposit] = useState(false);
@@ -85,7 +89,9 @@ export function GatewayDashboard() {
   );
 
   const [bridgeAmount, setBridgeAmount] = useState("0.1");
-  const [bridgeSource, setBridgeSource] = useState<keyof typeof chainConfig>("baseSepolia");
+  const [bridgeSource, setBridgeSource] = useState<keyof typeof chainConfig>(
+    BRIDGE_SOURCE_CHAIN_KEYS[0] as keyof typeof chainConfig
+  );
   const [isBridging, setIsBridging] = useState(false);
 
 
@@ -130,19 +136,29 @@ export function GatewayDashboard() {
     chainId: fastSourceConfig.chainId,
   });
 
-  const arcGateway = useGatewayBalance(chainConfig.arc.domainId);
-  const baseGateway = useGatewayBalance(chainConfig.baseSepolia.domainId);
-  const ethGateway = useGatewayBalance(chainConfig.ethereumSepolia.domainId);
-  const avalancheGateway = useGatewayBalance(chainConfig.avalancheFuji.domainId);
-  const polygonGateway = useGatewayBalance(chainConfig.polygonAmoy.domainId);
+  // Build gateway balance hooks for every displayed chain dynamically.
+  // We call one hook per entry in GATEWAY_BALANCE_CHAIN_KEYS (max 5).
+  const gwKeys = GATEWAY_BALANCE_CHAIN_KEYS as readonly (keyof typeof chainConfig)[];
+  const gw0 = useGatewayBalance(gwKeys[0] ? chainConfig[gwKeys[0]]?.domainId ?? null : null);
+  const gw1 = useGatewayBalance(gwKeys[1] ? chainConfig[gwKeys[1]]?.domainId ?? null : null);
+  const gw2 = useGatewayBalance(gwKeys[2] ? chainConfig[gwKeys[2]]?.domainId ?? null : null);
+  const gw3 = useGatewayBalance(gwKeys[3] ? chainConfig[gwKeys[3]]?.domainId ?? null : null);
+  const gw4 = useGatewayBalance(gwKeys[4] ? chainConfig[gwKeys[4]]?.domainId ?? null : null);
 
-  const gatewayBalances = [
-    { domain: chainConfig.arc.domainId, balance: arcGateway.data },
-    { domain: chainConfig.baseSepolia.domainId, balance: baseGateway.data },
-    { domain: chainConfig.ethereumSepolia.domainId, balance: ethGateway.data },
-    { domain: chainConfig.avalancheFuji.domainId, balance: avalancheGateway.data },
-    { domain: chainConfig.polygonAmoy.domainId, balance: polygonGateway.data },
-  ];
+  const gwHooks = [gw0, gw1, gw2, gw3, gw4];
+
+  const gatewayBalances = gwKeys.map((key, i) => ({
+    domain: chainConfig[key]?.domainId ?? null,
+    balance: gwHooks[i]?.data,
+    key,
+  }));
+
+  // Convenience aliases for refresh button
+  const arcGateway = gw0;
+  const baseGateway = gw1;
+  const ethGateway = gw2;
+  const avalancheGateway = gw3;
+  const polygonGateway = gw4;
 
   const sourceGatewayBalance = gatewayBalances.find(
     b => b.domain === bridgeSourceConfig.domainId
@@ -164,11 +180,7 @@ export function GatewayDashboard() {
       getPublicClient: ({ chain }) =>
         createPublicClient({
           chain,
-          transport: http(
-            chain.id === chainConfig.ethereumSepolia.chainId
-              ? "https://ethereum-sepolia-rpc.publicnode.com"
-              : chain.rpcUrls.default.http[0]
-          ),
+          transport: http(chain.rpcUrls.default.http[0]),
         }),
     });
   };
@@ -192,7 +204,7 @@ export function GatewayDashboard() {
     setIsEstimatingFastDeposit(true);
     try {
       const adapter = await getAdapter();
-      const kit = new UnifiedBalanceKit({ environment: "testnet", adapter });
+      const kit = new UnifiedBalanceKit({ environment: GATEWAY_ENV, adapter });
 
       const estimate = await kit.estimateDeposit({
         from: { adapter, chain: fastDepositRoute.sourceChain },
@@ -228,7 +240,7 @@ export function GatewayDashboard() {
 
     try {
       const adapter = await getAdapter();
-      const kit = new UnifiedBalanceKit({ environment: "testnet", adapter });
+      const kit = new UnifiedBalanceKit({ environment: GATEWAY_ENV, adapter });
 
       const depositToast = toastLoading(
         `Fast depositing ${fastDepositAmount} USDC from ${fastSourceConfig.label} to ${fastDestinationConfig.label}...`
@@ -445,8 +457,11 @@ export function GatewayDashboard() {
       if (result.status === "finalized" || result.status === "confirmed") {
         toastSuccess(`Bridge completed!`);
         invalidateGateway(bridgeSourceConfig.domainId);
-        invalidateGateway(26);
-        invalidateWallet(5042002, chainConfig.arc.usdcAddress);
+        const arcCfg = (chainConfig as any).arc;
+        if (arcCfg) {
+          invalidateGateway(arcCfg.domainId);
+          invalidateWallet(arcCfg.chainId, arcCfg.usdcAddress);
+        }
       } else {
         toastInfo("Bridge submitted but finality not yet confirmed.");
       }
@@ -505,14 +520,11 @@ export function GatewayDashboard() {
         </div>
         <div className="space-y-1 min-w-0">
           {gatewayBalances.map((b) => {
-            const chainKey = Object.keys(chainConfig).find(
-              k => chainConfig[k as keyof typeof chainConfig].domainId === b.domain
-            ) as keyof typeof chainConfig | undefined;
-            const chainLabel = chainKey ? chainConfig[chainKey].label : "Unknown";
+            const chainLabel = b.key ? chainConfig[b.key]?.label : "Unknown";
             return (
-              <div key={b.domain} className="receipt-row text-sm py-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
+              <div key={b.key} className="receipt-row text-sm py-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
                 <span className="receipt-address min-w-0 truncate flex items-center gap-1.5">
-                  {chainKey && <ChainIcon chainKey={chainKey} size="sm" />}
+                  {b.key && <ChainIcon iconKey={chainConfig[b.key].iconKey} size="sm" />}
                   {chainLabel}
                 </span>
                 <span className="receipt-amount shrink-0">{getDisplayBalance(b.balance)} USDC</span>
@@ -547,10 +559,10 @@ export function GatewayDashboard() {
               {depositMode === "fast" ? (
                 <>
                   <span className="truncate min-w-0 flex items-center gap-1.5">
-                    <ChainIcon chainKey={fastDepositRoute?.from ?? ""} size="md" />
+                    <ChainIcon iconKey={fastSourceConfig.iconKey} size="md" />
                     {fastSourceConfig.label}
                     <ArrowRight size={12} className="shrink-0" />
-                    <ChainIcon chainKey={fastDepositRoute?.to ?? ""} size="md" />
+                    <ChainIcon iconKey={fastDestinationConfig.iconKey} size="md" />
                     {fastDestinationConfig.label}
                   </span>
                   <span className="flex items-center gap-1 text-[#F2B134] shrink-0">
@@ -560,7 +572,7 @@ export function GatewayDashboard() {
                 </>
               ) : (
                 <span className="truncate flex items-center gap-1.5">
-                  <ChainIcon chainKey={depositChain} size="md" />
+                  <ChainIcon iconKey={chainConfig[depositChain].iconKey} size="md" />
                   {chainConfig[depositChain].label}
                   <ArrowRight size={12} className="shrink-0" />
                   Gateway
@@ -594,7 +606,7 @@ export function GatewayDashboard() {
                       : "text-[#EDE3D0]"
                   }`}
                 >
-                  <span className="flex items-center gap-1.5"><ChainIcon chainKey={key} size="md" />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
+                  <span className="flex items-center gap-1.5"><ChainIcon iconKey={chainConfig[key].iconKey} size="md" />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
                   <span className="text-xs text-[#6B5F4F]">standard</span>
                 </button>
               ))}
@@ -901,7 +913,7 @@ export function GatewayDashboard() {
                 <option key={key} value={key}>{chainConfig[key].label}</option>
               ))}
             </select>
-            <span className="text-[#9C917E] text-sm shrink-0 flex items-center gap-1.5"><ArrowRight size={12} /><ChainIcon chainKey="arc" size="md" /> Arc</span>
+            <span className="text-[#9C917E] text-sm shrink-0 flex items-center gap-1.5"><ArrowRight size={12} /><ChainIcon iconKey="arc" size="md" /> Arc</span>
           </div>
           <div className="flex gap-2 min-w-0 items-center">
             <input

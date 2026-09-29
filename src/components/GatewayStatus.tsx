@@ -1,27 +1,32 @@
-import { useGatewayBalance } from "../hooks/useBalances";
-import { chainConfig } from "../config/gateway";
-import { useInvalidateBalances } from "../hooks/useBalances";
+import { useGatewayBalance, useInvalidateBalances } from "../hooks/useBalances";
+import { chainConfig, GATEWAY_BALANCE_CHAIN_KEYS } from "../config/gateway.active";
 import { RefreshCw } from "lucide-react";
 
 export function GatewayStatus() {
   const { invalidateGateway } = useInvalidateBalances();
 
-  const arc       = useGatewayBalance(chainConfig.arc.domainId);
-  const base      = useGatewayBalance(chainConfig.baseSepolia.domainId);
-  const eth       = useGatewayBalance(chainConfig.ethereumSepolia.domainId);
-  const avalanche = useGatewayBalance(chainConfig.avalancheFuji.domainId);
-  const polygon   = useGatewayBalance(chainConfig.polygonAmoy.domainId);
+  // Build one hook per balance chain — max 5 entries.
+  const keys = GATEWAY_BALANCE_CHAIN_KEYS as readonly (keyof typeof chainConfig)[];
+  const b0 = useGatewayBalance(keys[0] ? chainConfig[keys[0]]?.domainId ?? null : null);
+  const b1 = useGatewayBalance(keys[1] ? chainConfig[keys[1]]?.domainId ?? null : null);
+  const b2 = useGatewayBalance(keys[2] ? chainConfig[keys[2]]?.domainId ?? null : null);
+  const b3 = useGatewayBalance(keys[3] ? chainConfig[keys[3]]?.domainId ?? null : null);
+  const b4 = useGatewayBalance(keys[4] ? chainConfig[keys[4]]?.domainId ?? null : null);
 
-  const balances = [
-    { key: "arc"             as const, domain: chainConfig.arc.domainId,             label: chainConfig.arc.label,             balance: arc.data },
-    { key: "baseSepolia"     as const, domain: chainConfig.baseSepolia.domainId,     label: chainConfig.baseSepolia.label,     balance: base.data },
-    { key: "ethereumSepolia" as const, domain: chainConfig.ethereumSepolia.domainId, label: chainConfig.ethereumSepolia.label, balance: eth.data },
-    { key: "avalancheFuji"   as const, domain: chainConfig.avalancheFuji.domainId,   label: chainConfig.avalancheFuji.label,   balance: avalanche.data },
-    { key: "polygonAmoy"     as const, domain: chainConfig.polygonAmoy.domainId,     label: chainConfig.polygonAmoy.label,     balance: polygon.data },
-  ];
+  const hooks = [b0, b1, b2, b3, b4];
+
+  const balances = keys.map((key, i) => ({
+    key,
+    domain: chainConfig[key]?.domainId ?? null,
+    label: chainConfig[key]?.label ?? key,
+    balance: hooks[i]?.data,
+    refetch: hooks[i]?.refetch,
+  }));
 
   const refresh = () => {
-    balances.forEach(b => invalidateGateway(b.domain));
+    balances.forEach((b) => {
+      if (b.domain !== null) invalidateGateway(b.domain);
+    });
   };
 
   return (

@@ -22,6 +22,7 @@ export const chainConfig = {
     chainId: arcTestnet.id,
     usdcAddress: "0x3600000000000000000000000000000000000000" as Address,
     domainId: 26,
+    iconKey: "arc" as const,
     label: "Arc Testnet",
     addParams: {
       chainId: `0x${arcTestnet.id.toString(16)}`,
@@ -37,6 +38,7 @@ export const chainConfig = {
     chainId: baseSepolia.id,
     usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as Address,
     domainId: 6,
+    iconKey: "base" as const,
     label: "Base Sepolia",
     addParams: {
       chainId: `0x${baseSepolia.id.toString(16)}`,
@@ -52,6 +54,7 @@ export const chainConfig = {
     chainId: sepolia.id,
     usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" as Address,
     domainId: 0,
+    iconKey: "ethereum" as const,
     label: "Ethereum Sepolia",
     addParams: {
       chainId: `0x${sepolia.id.toString(16)}`,
@@ -67,6 +70,7 @@ export const chainConfig = {
     chainId: avalancheFuji.id,
     usdcAddress: "0x5425890298aed601595a70AB815c96711a31Bc65" as Address,
     domainId: 1,
+    iconKey: "avalanche" as const,
     label: "Avalanche Fuji",
     addParams: {
       chainId: `0x${avalancheFuji.id.toString(16)}`,
@@ -82,6 +86,7 @@ export const chainConfig = {
     chainId: optimismSepolia.id,
     usdcAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7" as Address,
     domainId: 2,
+    iconKey: "op" as const,
     label: "OP Sepolia",
     addParams: {
       chainId: `0x${optimismSepolia.id.toString(16)}`,
@@ -97,6 +102,7 @@ export const chainConfig = {
     chainId: polygonAmoy.id,
     usdcAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582" as Address,
     domainId: 7,
+    iconKey: "polygon" as const,
     label: "Polygon PoS Amoy",
     addParams: {
       chainId: `0x${polygonAmoy.id.toString(16)}`,

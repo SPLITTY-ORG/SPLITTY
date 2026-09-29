@@ -1,13 +1,18 @@
 import {
   NetworkBase,
   NetworkEthereum,
-  NetworkAvalancheFuji,
-  NetworkPolygonAmoy,
+  NetworkAvalanche,
+  NetworkPolygon,
   NetworkOptimism,
 } from "@web3icons/react";
 
+// Stable icon identifiers — shared across testnet and mainnet config keys.
+// Every entry in gateway.ts and gateway.mainnet.ts carries an `iconKey`
+// field typed as one of these values.
+export type IconKey = "arc" | "base" | "ethereum" | "avalanche" | "op" | "polygon";
+
 interface ChainIconProps {
-  chainKey: string;
+  iconKey: IconKey;
   size?: "sm" | "md";
   variant?: "color" | "mono";
   className?: string;
@@ -23,7 +28,7 @@ const ARC_PATH =
   "M0 171C1.39327 129.136 8.52567 90.067 20.4481 59.6871C35.5477 21.1972 57.4057 0 81.9919 0C106.578 0 128.433 21.1972 143.536 59.6871C151.391 79.7058 157.17 103.491 160.594 129.366C160.9 131.677 161.161 134.026 161.428 136.369C161.515 136.514 161.568 136.649 161.55 136.758C161.55 136.758 163.562 149.265 163.99 171H163.763C160.778 168.562 125.578 141.038 67.2282 149.007C68.1086 139.181 69.3194 129.62 70.8835 120.456C70.9634 119.987 71.0558 119.535 71.1373 119.07C94.0233 118.383 114.055 121.028 129.416 124.494C129.359 124.131 129.311 123.758 129.253 123.397C126.095 103.83 121.437 85.9161 115.43 70.6073C105.61 45.576 92.7953 30.0239 81.9919 30.0239C71.189 30.0239 58.3744 45.576 48.554 70.6073C46.1769 76.6621 44.0128 83.1192 42.0721 89.9301C39.3438 99.4735 37.0517 109.704 35.2212 120.455C32.5117 136.331 30.8189 153.358 30.1954 171H0Z";
 
 export function ChainIcon({
-  chainKey,
+  iconKey,
   size = "md",
   variant = "mono",
   className = "",
@@ -44,7 +49,7 @@ export function ChainIcon({
   const renderIcon = () => {
     const baseProps = { size: icon, variant: iconVariant };
 
-    switch (chainKey) {
+    switch (iconKey) {
       case "arc": {
         const w = icon * (164 / 171);
         const h = icon;
@@ -63,20 +68,16 @@ export function ChainIcon({
           </svg>
         );
       }
-      case "baseSepolia":
       case "base":
         return <NetworkBase {...baseProps} />;
-      case "ethereumSepolia":
-      case "eth":
+      case "ethereum":
         return <NetworkEthereum {...baseProps} />;
-      case "avalancheFuji":
-        return <NetworkAvalancheFuji {...baseProps} />;
-      case "polygonAmoy":
-        return <NetworkPolygonAmoy {...baseProps} />;
-      case "opSepolia":
+      case "avalanche":
+        return <NetworkAvalanche {...baseProps} />;
+      case "op":
         return <NetworkOptimism {...baseProps} />;
-      default:
-        return null;
+      case "polygon":
+        return <NetworkPolygon {...baseProps} />;
     }
   };
 

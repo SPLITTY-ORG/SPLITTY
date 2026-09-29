@@ -24,6 +24,7 @@ import {
   VolumeX,
   BookOpen,
 } from "lucide-react";
+import { IS_MAINNET } from "./config/gateway.active";
 
 type Tab = "split" | "gateway" | "history";
 
@@ -181,7 +182,7 @@ function App() {
 
           <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-[rgba(242,177,52,0.10)] bg-[#1A1410] px-3 py-1 font-mono text-[10px] tracking-[0.15em] text-[#6B5F4F] sm:text-[11px]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#4ADE80] opacity-60" />
-            ARC TESTNET
+            {IS_MAINNET ? "ARC MAINNET" : "ARC TESTNET"}
           </span>
 
           {/* Headline. No hard line break -- it wraps to suit the viewport. */}
@@ -308,7 +309,7 @@ function App() {
           {/* Footer */}
           <div className="mt-16 w-full border-t border-[rgba(242,177,52,0.08)] pt-8 sm:mt-20">
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-[11px] text-[#6B5F4F]">
-              <span>Arc Testnet</span>
+              <span>{IS_MAINNET ? "Arc Mainnet" : "Arc Testnet"}</span>
               <span aria-hidden="true">·</span>
               <span>Circle Gateway</span>
               <span aria-hidden="true">·</span>
@@ -369,7 +370,7 @@ function App() {
             <div className="hidden sm:flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#9C917E] bg-[#1D1712] px-2 py-1 rounded-full border border-[rgba(242,177,52,0.16)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse"></span>
-                ARC TESTNET
+                {IS_MAINNET ? "ARC MAINNET" : "ARC TESTNET"}
               </span>
             </div>
           </div>
