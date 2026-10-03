@@ -194,6 +194,29 @@ const ERC20_ABI = [
   },
 ] as const;
 
+// ─── Circle Gateway chain identifiers ────────────────────────────────────────
+// Circle's Unified Balance Kit expects exact-case strings for supported chains.
+// Testnet values use "Name_Testnet" / "Name_Sepolia" format.
+// Mainnet values use capitalized names like "Base", "Ethereum", "Arc".
+// See: https://developers.circle.com/gateway/references/supported-blockchains
+const CHAIN_IDENTIFIERS_TESTNET: Record<string, string> = {
+  arc: "Arc_Testnet",
+  baseSepolia: "Base_Sepolia",
+  ethereumSepolia: "Ethereum_Sepolia",
+  avalancheFuji: "Avalanche_Fuji",
+  polygonAmoy: "Polygon_Amoy_Testnet",
+  opSepolia: "Optimism_Sepolia",
+};
+
+const CHAIN_IDENTIFIERS_MAINNET: Record<string, string> = {
+  arc: "Arc",
+  base: "Base",
+  ethereum: "Ethereum",
+  avalanche: "Avalanche",
+  polygon: "Polygon",
+  op: "Optimism",
+};
+
 type FundingSource = "native" | "unified" | "hybrid";
 type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | "confirmed" | "partial" | "failed";
 
@@ -932,18 +955,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           }),
       });
 
-      // Map each active config key to the Circle chain identifier string.
-      // Each chain entry carries its own sourceChain string in FAST_DEPOSIT_ROUTES;
-      // for the spend flow we derive it from the chain label.
-      const chainIdentifiers: Record<string, string> = Object.fromEntries(
-        gwBalKeys.map((key) => {
-          const cfg = chainConfig[key];
-          // Circle expects strings like "Arc_Testnet", "Base_Sepolia", "Base", etc.
-          // The label from chainConfig is already the canonical human name; replace
-          // spaces with underscores and use it directly as Circle accepts that format.
-          return [key, cfg.label.replace(/\s+/g, "_")];
-        })
-      );
+      const chainIdentifiers: Record<string, string> =
+        IS_MAINNET ? CHAIN_IDENTIFIERS_MAINNET : CHAIN_IDENTIFIERS_TESTNET;
 
       let remaining = amountToBridge;
 
@@ -981,6 +994,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         adapter,
       });
 
+      const destinationChain = IS_MAINNET ? "Arc" : "Arc_Testnet";
+
       const spendParams = {
         from: {
           adapter,
@@ -988,7 +1003,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         },
         to: {
           adapter,
-          chain: (IS_MAINNET ? "Arc" : "Arc_Testnet") as string,
+          chain: destinationChain as any,
           recipientAddress: address,
           useForwarder: true,
         },
@@ -2107,7 +2122,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
            {txHash && (
              <div className="text-xs text-amber mt-1">
-               <a href={`https://testnet.arcscan.app/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+               <a href={`https://${IS_MAINNET ? "explorer.arc.io" : "testnet.arcscan.app"}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
                  View on Explorer
                </a>
              </div>
@@ -2115,7 +2130,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
            {bridgeTxHash && (
              <div className="text-xs text-amber mt-1">
-               Bridge tx: <a href={`https://testnet.arcscan.app/tx/${bridgeTxHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+               Bridge tx: <a href={`https://${IS_MAINNET ? "explorer.arc.io" : "testnet.arcscan.app"}/tx/${bridgeTxHash}`} target="_blank" rel="noopener noreferrer" className="underline">
                  {bridgeTxHash.slice(0, 10)}…
                </a>
              </div>
