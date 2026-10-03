@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { GATEWAY_API_BASE, chainConfig } from "../config/gateway";
+import { GATEWAY_API_BASE, chainConfig } from "../config/gateway.active";
 
 type Balance = {
   domain: number;
@@ -18,7 +18,9 @@ export function useGatewayBalance() {
     setLoading(true);
     setError(null);
     try {
-      const domains = Object.values(chainConfig).map((c) => c.domainId);
+      const domains = Object.values(chainConfig)
+        .map((c) => c.domainId)
+        .filter((d): d is number => d !== null);
       const body = {
         token: "USDC",
         sources: domains.map((domain) => ({

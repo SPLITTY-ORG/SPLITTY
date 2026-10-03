@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAccount, useSwitchChain, useSignTypedData } from "wagmi";
 import { parseUnits, pad, zeroAddress, type Hex } from "viem";
 import toast from "react-hot-toast";
-import { GATEWAY_WALLET_ADDRESS, GATEWAY_MINTER_ADDRESS, GATEWAY_API_BASE, chainConfig, CHAIN_KEYS } from "../config/gateway";
+import { GATEWAY_WALLET_ADDRESS, GATEWAY_MINTER_ADDRESS, GATEWAY_API_BASE, chainConfig, CHAIN_KEYS, BRIDGE_SOURCE_CHAIN_KEYS } from "../config/gateway.active";
 import { useGatewayBalance } from "../hooks/useGatewayBalance";
 import { ArrowRight } from "lucide-react";
 
@@ -57,7 +57,9 @@ export function GatewayTransfer() {
   const { switchChainAsync } = useSwitchChain();
   const { balances, refetch: refetchBalances } = useGatewayBalance();
   const [isTransferring, setIsTransferring] = useState(false);
-  const [sourceChainKey, setSourceChainKey] = useState<keyof typeof chainConfig>("baseSepolia");
+  const [sourceChainKey, setSourceChainKey] = useState<keyof typeof chainConfig>(
+    BRIDGE_SOURCE_CHAIN_KEYS[0] as keyof typeof chainConfig
+  );
   const [amount, setAmount] = useState("0.1");
   const [transferId, setTransferId] = useState<string | null>(null);
 
@@ -111,7 +113,7 @@ export function GatewayTransfer() {
         }
       }
 
-      const destConfig = chainConfig.arc;
+      const destConfig = (chainConfig as any).arc as typeof chainConfig[keyof typeof chainConfig];
       const sourceToken = sourceConfig.usdcAddress;
       const destToken = destConfig.usdcAddress;
 
@@ -215,7 +217,7 @@ export function GatewayTransfer() {
           onChange={(e) => setSourceChainKey(e.target.value as keyof typeof chainConfig)}
           className="flex-1 min-w-[120px] bg-[#FDFBF7] border border-[#D0C8B8] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-foil/50"
         >
-          {CHAIN_KEYS.filter(key => key !== "arc").map((key) => (
+          {(BRIDGE_SOURCE_CHAIN_KEYS as readonly (keyof typeof chainConfig)[]).map((key) => (
             <option key={key} value={key}>
               {chainConfig[key].label}
             </option>

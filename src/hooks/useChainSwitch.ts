@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSwitchChain, useAccount } from "wagmi";
-import { chainConfig } from "../config/gateway";
-import type { ChainKey } from "../config/gateway";
+import { chainConfig } from "../config/gateway.active";
+import type { ChainKey } from "../config/gateway.active";
 
 type ChainSwitchState = {
   isMismatched: boolean;

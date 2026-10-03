@@ -1,5 +1,5 @@
 import { type Address, parseUnits, pad, zeroAddress, type Hex } from "viem";
-import { GATEWAY_WALLET_ADDRESS, GATEWAY_MINTER_ADDRESS, GATEWAY_API_BASE, chainConfig } from "../config/gateway";
+import { GATEWAY_WALLET_ADDRESS, GATEWAY_MINTER_ADDRESS, GATEWAY_API_BASE, chainConfig } from "../config/gateway.active";
 
 function randomBytes32(): Hex {
   const array = new Uint8Array(32);
@@ -24,7 +24,8 @@ export async function bridgeToArc(
   onProgress?: (msg: string) => void
 ): Promise<{ transferId: string; success: boolean }> {
   const sourceConfig = chainConfig[sourceChainKey];
-  const destConfig = chainConfig.arc;
+  const destConfig = (chainConfig as any).arc as typeof chainConfig[keyof typeof chainConfig];
+  if (!destConfig) throw new Error("Arc chain config not found for current environment");
 
   const value = parseUnits(amount.toString(), 6);
   const maxBlockHeight = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");

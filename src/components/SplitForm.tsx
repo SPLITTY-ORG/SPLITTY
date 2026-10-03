@@ -77,7 +77,7 @@ import {
 
 import { exceedsTokenPrecision } from "../utils/amountPrecision";
 import { supabase } from "../lib/supabase";
-import { chainConfig } from "../config/gateway";
+import { chainConfig, IS_MAINNET, GATEWAY_BALANCE_CHAIN_KEYS, GATEWAY_ENV } from "../config/gateway.active";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { useSound } from "../hooks/useSound";
 import { useChainSwitch } from "../hooks/useChainSwitch";
@@ -114,10 +114,13 @@ type SavedList = {
 const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 const USDC_DECIMALS = 6;
 
-// SplittyBatcher contract — deployed on Arc Testnet (chain ID 5042002).
-// Handles ERC-20 batch transfers for custom tokens.
-const CUSTOM_TOKEN_BATCHER =
-  "0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3" as Address;
+// SplittyBatcher contract — handles ERC-20 batch transfers for custom tokens.
+// Testnet: chain ID 5042002 — Mainnet: chain ID 5042
+const CUSTOM_TOKEN_BATCHER = (
+  IS_MAINNET
+    ? "0x941E49c0cF2F76Cc4f79D9fd1E4A892893e90032"
+    : "0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3"
+) as Address;
 
 const CUSTOM_TOKEN_BATCHER_ABI = [
   {
@@ -190,6 +193,29 @@ const ERC20_ABI = [
     outputs: [{ type: "bool" }],
   },
 ] as const;
+
+// ─── Circle Gateway chain identifiers ────────────────────────────────────────
+// Circle's Unified Balance Kit expects exact-case strings for supported chains.
+// Testnet values use "Name_Testnet" / "Name_Sepolia" format.
+// Mainnet values use capitalized names like "Base", "Ethereum", "Arc".
+// See: https://developers.circle.com/gateway/references/supported-blockchains
+const CHAIN_IDENTIFIERS_TESTNET: Record<string, string> = {
+  arc: "Arc_Testnet",
+  baseSepolia: "Base_Sepolia",
+  ethereumSepolia: "Ethereum_Sepolia",
+  avalancheFuji: "Avalanche_Fuji",
+  polygonAmoy: "Polygon_Amoy_Testnet",
+  opSepolia: "Optimism_Sepolia",
+};
+
+const CHAIN_IDENTIFIERS_MAINNET: Record<string, string> = {
+  arc: "Arc",
+  base: "Base",
+  ethereum: "Ethereum",
+  avalanche: "Avalanche",
+  polygon: "Polygon",
+  op: "Optimism",
+};
 
 type FundingSource = "native" | "unified" | "hybrid";
 type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | "confirmed" | "partial" | "failed";
@@ -272,8 +298,8 @@ export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
   const { invalidateWallet, invalidateGateway } = useInvalidateBalances();
 
   const arcSwitch = useChainSwitch("arc");
-  const baseSwitch = useChainSwitch("baseSepolia");
-  const ethSwitch = useChainSwitch("ethereumSepolia");
+  const baseSwitch = useChainSwitch(IS_MAINNET ? "base" : "baseSepolia");
+  const ethSwitch = useChainSwitch(IS_MAINNET ? "ethereum" : "ethereumSepolia");
   const [gatewaySourceChain, setGatewaySourceChain] = useState<keyof typeof chainConfig | null>(null);
   const bridgeSwitch = useChainSwitch(gatewaySourceChain || "arc");
 
@@ -308,7 +334,7 @@ export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
     : USDC_ADDRESS;
   const activeDecimals = isCustomToken ? tokenDecimals : USDC_DECIMALS;
 
-  const chainIdForBalance = chainId || 5042002;
+  const chainIdForBalance = chainId ?? (IS_MAINNET ? 5042 : 5042002);
   const selectedChainConfig = Object.values(chainConfig).find(
     (config) => config.chainId === chainIdForBalance
   );
@@ -329,61 +355,33 @@ export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
     address: address,
   });
 
-  const arcGateway = useGatewayBalance(chainConfig.arc.domainId);
-  const baseGateway = useGatewayBalance(chainConfig.baseSepolia.domainId);
-  const ethGateway = useGatewayBalance(chainConfig.ethereumSepolia.domainId);
-  const avalancheGateway = useGatewayBalance(chainConfig.avalancheFuji.domainId);
-  const polygonGateway = useGatewayBalance(chainConfig.polygonAmoy.domainId);
+  // Gateway balance hooks — one per entry in GATEWAY_BALANCE_CHAIN_KEYS (max 5).
+  // Hooks must be called unconditionally (Rules of Hooks), so we always call 5 slots.
+  const gwBalKeys = GATEWAY_BALANCE_CHAIN_KEYS as readonly (keyof typeof chainConfig)[];
+  const gwBal0 = useGatewayBalance(gwBalKeys[0] ? chainConfig[gwBalKeys[0]]?.domainId ?? null : null);
+  const gwBal1 = useGatewayBalance(gwBalKeys[1] ? chainConfig[gwBalKeys[1]]?.domainId ?? null : null);
+  const gwBal2 = useGatewayBalance(gwBalKeys[2] ? chainConfig[gwBalKeys[2]]?.domainId ?? null : null);
+  const gwBal3 = useGatewayBalance(gwBalKeys[3] ? chainConfig[gwBalKeys[3]]?.domainId ?? null : null);
+  const gwBal4 = useGatewayBalance(gwBalKeys[4] ? chainConfig[gwBalKeys[4]]?.domainId ?? null : null);
+  const gwBalHooks = [gwBal0, gwBal1, gwBal2, gwBal3, gwBal4];
 
   const normalizeGatewayBalance = (value: unknown): string => {
-    if (typeof value !== "string" && typeof value !== "number") {
-      return "0";
-    }
-
+    if (typeof value !== "string" && typeof value !== "number") return "0";
     const parsed = Number(value);
-
     return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : "0";
   };
 
-  const gatewayBalances = [
-    {
-      key: "arc" as const,
-      domain: chainConfig.arc.domainId,
-      balance: normalizeGatewayBalance(arcGateway.data),
-    },
-    {
-      key: "baseSepolia" as const,
-      domain: chainConfig.baseSepolia.domainId,
-      balance: normalizeGatewayBalance(baseGateway.data),
-    },
-    {
-      key: "ethereumSepolia" as const,
-      domain: chainConfig.ethereumSepolia.domainId,
-      balance: normalizeGatewayBalance(ethGateway.data),
-    },
-    {
-      key: "avalancheFuji" as const,
-      domain: chainConfig.avalancheFuji.domainId,
-      balance: normalizeGatewayBalance(avalancheGateway.data),
-    },
-    {
-      key: "polygonAmoy" as const,
-      domain: chainConfig.polygonAmoy.domainId,
-      balance: normalizeGatewayBalance(polygonGateway.data),
-    },
-  ];
+  const gatewayBalances = gwBalKeys.map((key, i) => ({
+    key,
+    domain: chainConfig[key]?.domainId ?? null,
+    balance: normalizeGatewayBalance(gwBalHooks[i]?.data),
+  }));
 
-  type GatewayFundingChain = typeof gatewayBalances[number]["key"];
+  type GatewayFundingChain = (typeof gwBalKeys)[number];
 
-  const [selectedGatewaySources, setSelectedGatewaySources] = useState<
-    GatewayFundingChain[]
-  >([
-    "arc",
-    "baseSepolia",
-    "ethereumSepolia",
-    "avalancheFuji",
-    "polygonAmoy",
-  ]);
+  const [selectedGatewaySources, setSelectedGatewaySources] = useState<GatewayFundingChain[]>(
+    [...gwBalKeys]
+  );
 
   const toggleGatewaySource = (key: GatewayFundingChain) => {
     setSelectedGatewaySources((current) =>
@@ -602,9 +600,10 @@ setValue("recipients", list.recipients);
           } else {
             toastSuccess("History saved!");
             play("success");
-            invalidateWallet(chainId || 5042002, activeTokenAddress);
+            invalidateWallet(chainId ?? (IS_MAINNET ? 5042 : 5042002), activeTokenAddress);
             if (activeTokenAddress === USDC_ADDRESS) {
-              invalidateGateway(26);
+              const arcDomainId = (chainConfig as any).arc?.domainId ?? null;
+              if (arcDomainId !== null) invalidateGateway(arcDomainId);
             }
             // Keep the list on screen after a partial send, otherwise the
             // failed recipients are wiped before anyone can act on them.
@@ -952,28 +951,12 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         getPublicClient: ({ chain }) =>
           createPublicClient({
             chain,
-            transport: http(
-              chain.id === chainConfig.ethereumSepolia.chainId
-                ? "https://ethereum-sepolia-rpc.publicnode.com"
-                : chain.rpcUrls.default.http[0]
-            ),
+            transport: http(chain.rpcUrls.default.http[0]),
           }),
       });
 
-      const chainIdentifiers: Record<
-        GatewayFundingChain,
-        | "Arc_Testnet"
-        | "Base_Sepolia"
-        | "Ethereum_Sepolia"
-        | "Avalanche_Fuji"
-        | "Polygon_PoS_Amoy"
-      > = {
-        arc: "Arc_Testnet",
-        baseSepolia: "Base_Sepolia",
-        ethereumSepolia: "Ethereum_Sepolia",
-        avalancheFuji: "Avalanche_Fuji",
-        polygonAmoy: "Polygon_PoS_Amoy",
-      };
+      const chainIdentifiers: Record<string, string> =
+        IS_MAINNET ? CHAIN_IDENTIFIERS_MAINNET : CHAIN_IDENTIFIERS_TESTNET;
 
       let remaining = amountToBridge;
 
@@ -1007,9 +990,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       setNetworkStatus("Funding Arc wallet...");
 
       const kit = new UnifiedBalanceKit({
-        environment: "testnet",
+        environment: GATEWAY_ENV,
         adapter,
       });
+
+      const destinationChain = IS_MAINNET ? "Arc" : "Arc_Testnet";
 
       const spendParams = {
         from: {
@@ -1018,7 +1003,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         },
         to: {
           adapter,
-          chain: "Arc_Testnet" as const,
+          chain: destinationChain as any,
           recipientAddress: address,
           useForwarder: true,
         },
@@ -1051,7 +1036,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       }
 
       invalidateGateway(chainConfig.arc.domainId);
-      invalidateWallet(5042002, USDC_ADDRESS);
+      invalidateWallet(IS_MAINNET ? 5042 : 5042002, USDC_ADDRESS);
 
       setNetworkStatus("Refreshing balance...");
       await refetchBalance();
@@ -1389,11 +1374,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
   const isLoading = isPending || isWaiting || isSubmitting || savingHistory || isBridging;
 
   const handleNetworkSwitch = async (networkKey: "arc" | "base" | "eth") => {
-    const targetChainId = {
-      arc: 5042002,
-      base: 84532,
-      eth: 11155111,
-    }[networkKey];
+    const targetChainId = IS_MAINNET
+      ? { arc: 5042, base: 8453, eth: 1 }[networkKey]
+      : { arc: 5042002, base: 84532, eth: 11155111 }[networkKey];
 
     if (chainId === targetChainId) return;
 
@@ -1475,9 +1458,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         </div>
         <div className="flex items-center gap-2">
           {[
-            { key: "arc", label: "Arc", active: chainId === 5042002 },
-            { key: "base", label: "Base", active: chainId === 84532 },
-            { key: "eth", label: "Ethereum Sepolia", active: chainId === 11155111 },
+            { key: "arc", iconKey: "arc" as const, label: IS_MAINNET ? "Arc" : "Arc Testnet", active: chainId === (IS_MAINNET ? 5042 : 5042002) },
+            { key: "base", iconKey: "base" as const, label: IS_MAINNET ? "Base" : "Base Sepolia", active: chainId === (IS_MAINNET ? 8453 : 84532) },
+            { key: "eth", iconKey: "ethereum" as const, label: IS_MAINNET ? "Ethereum" : "Ethereum Sepolia", active: chainId === (IS_MAINNET ? 1 : 11155111) },
           ].map((net) => (
             <div
               key={net.key}
@@ -1510,7 +1493,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               }}
               className={`network-pill ${net.active ? "network-pill-active" : "network-pill-inactive"} cursor-pointer`}
             >
-              <ChainIcon chainKey={net.key} size="md" />
+              <ChainIcon iconKey={net.iconKey} size="md" />
               {net.active && <Check size={12} className="text-[#F2B134]" />}
               <span>{net.label}</span>
             </div>
@@ -1766,7 +1749,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                         >
                           {selected && <Check size={12} className="inline-block" />}
                         </span>
-                        <ChainIcon chainKey={b.key} size="sm" />
+                        <ChainIcon iconKey={chainConfig[b.key].iconKey} size="sm" />
                         <span className="truncate">
                           {chainConfig[b.key].label}
                         </span>
@@ -2139,7 +2122,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
            {txHash && (
              <div className="text-xs text-amber mt-1">
-               <a href={`https://testnet.arcscan.app/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+               <a href={`https://${IS_MAINNET ? "explorer.arc.io" : "testnet.arcscan.app"}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
                  View on Explorer
                </a>
              </div>
@@ -2147,7 +2130,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
            {bridgeTxHash && (
              <div className="text-xs text-amber mt-1">
-               Bridge tx: <a href={`https://testnet.arcscan.app/tx/${bridgeTxHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+               Bridge tx: <a href={`https://${IS_MAINNET ? "explorer.arc.io" : "testnet.arcscan.app"}/tx/${bridgeTxHash}`} target="_blank" rel="noopener noreferrer" className="underline">
                  {bridgeTxHash.slice(0, 10)}…
                </a>
              </div>

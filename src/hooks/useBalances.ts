@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWallets } from "@privy-io/react-auth";
 import { createPublicClient, http, erc20Abi, type Address } from "viem";
-import { chainConfig, GATEWAY_API_BASE } from "../config/gateway";
+import { chainConfig, GATEWAY_API_BASE, IS_MAINNET } from "../config/gateway.active";
 
 export const balanceKeys = {
   wallet: (chainId: number, tokenAddress: string, walletAddress: string) =>
@@ -100,7 +100,7 @@ export function useWalletBalance(tokenAddress: Address, chainId?: number) {
   const walletAddress = getPreferredWallet(wallets)?.address as
     | Address
     | undefined;
-  const effectiveChainId = chainId || 5042002;
+  const effectiveChainId = chainId ?? (IS_MAINNET ? 5042 : 5042002);
   return useQuery({
     queryKey: balanceKeys.wallet(effectiveChainId, tokenAddress, walletAddress || "0x"),
     queryFn: () =>
@@ -110,15 +110,15 @@ export function useWalletBalance(tokenAddress: Address, chainId?: number) {
   });
 }
 
-export function useGatewayBalance(domainId: number) {
+export function useGatewayBalance(domainId: number | null) {
   const { wallets } = useWallets();
   const walletAddress = getPreferredWallet(wallets)?.address as
     | Address
     | undefined;
   return useQuery({
-    queryKey: balanceKeys.gateway(domainId, walletAddress || "0x"),
-    queryFn: () => fetchGatewayBalance(domainId, walletAddress as Address),
-    enabled: !!walletAddress,
+    queryKey: balanceKeys.gateway(domainId ?? -1, walletAddress || "0x"),
+    queryFn: () => fetchGatewayBalance(domainId as number, walletAddress as Address),
+    enabled: !!walletAddress && domainId !== null,
     staleTime: 10000,
   });
 }
@@ -153,17 +153,17 @@ export function useInvalidateBalances() {
 }
 
 export function useAllBalances() {
-  const { wallets } = useWallets();
-  const walletAddress = getPreferredWallet(wallets)?.address as
-    | Address
-    | undefined;
-  const arcWallet = useWalletBalance(
-    "0x3600000000000000000000000000000000000000" as Address,
-    5042002
-  );
-  const arcGateway = useGatewayBalance(26);
-  const baseGateway = useGatewayBalance(6);
-  const ethGateway = useGatewayBalance(0);
+  const arcCfg = (chainConfig as any).arc;
+  const arcChainId: number = arcCfg?.chainId ?? (IS_MAINNET ? 5042 : 5042002);
+  const arcUsdc: Address = arcCfg?.usdcAddress ?? "0x3600000000000000000000000000000000000000";
+  const arcDomainId: number | null = arcCfg?.domainId ?? null;
+  const baseCfg = (chainConfig as any).base ?? (chainConfig as any).baseSepolia;
+  const ethCfg = (chainConfig as any).ethereum ?? (chainConfig as any).ethereumSepolia;
+
+  const arcWallet = useWalletBalance(arcUsdc, arcChainId);
+  const arcGateway = useGatewayBalance(arcDomainId);
+  const baseGateway = useGatewayBalance(baseCfg?.domainId ?? null);
+  const ethGateway = useGatewayBalance(ethCfg?.domainId ?? null);
 
   return {
     arcWallet: arcWallet.data,

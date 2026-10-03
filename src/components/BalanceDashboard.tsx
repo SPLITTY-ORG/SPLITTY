@@ -1,5 +1,6 @@
 import { useAccount, useReadContract } from "wagmi";
 import { formatUnits, erc20Abi } from "viem";
+import { IS_MAINNET } from "../config/gateway.active";
 
 const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 
@@ -18,7 +19,7 @@ export function BalanceDashboard() {
       <div className="text-4xl font-mono tabular-nums text-amber">
         {balance ? formatUnits(balance, 6) : "0.00"} USDC
       </div>
-      <p className="text-sm text-cream-dim mt-2">Available on Arc Testnet</p>
+      <p className="text-sm text-cream-dim mt-2">Available on {IS_MAINNET ? "Arc" : "Arc Testnet"}</p>
     </div>
   );
 }
