@@ -5,13 +5,15 @@ icon: list-check
 
 # Your First Split
 
+## Your First Split
+
 Step-by-step walkthrough for creating and executing a batch payment.
 
 This walkthrough shows the complete Splitty flow.
 
 ## Step 1 — Connect your wallet
 
-Connect the wallet that will fund the payment. Make sure it is connected to **Arc Testnet**.
+Connect the wallet that will fund the payment. Make sure it is connected to **Arc Mainnet** for production payments or **Arc Testnet** for testing.
 
 ## Step 2 — Set the payment
 

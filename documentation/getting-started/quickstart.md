@@ -1,9 +1,11 @@
 ---
-description: Make your first multi-recipient payment on Arc Testnet.
+description: Make your first multi-recipient payment on Arc Mainnet or Arc Testnet.
 icon: bolt
 ---
 
 # Quickstart
+
+## Quickstart
 
 Get from connected wallet to completed batch payment in a few minutes.
 
@@ -11,7 +13,7 @@ Get from connected wallet to completed batch payment in a few minutes.
 
 Open Splitty and connect the wallet you want to use as the sender.
 
-Confirm that the selected network is **Arc Testnet**.
+Confirm that the selected network is **Arc Mainnet** for production payments or **Arc Testnet** for testing.
 
 ## 2. Choose a token
 
@@ -37,9 +39,11 @@ The total allocation must match the amount you intend to distribute.
 
 Select how you want to fund the split. Splitty has three funding sources:
 
-* **Native** — use funds available in your connected wallet.
-* **Gateway Balance** — use USDC available in your Circle Gateway balance.
-* **Native/Gateway** — use a combination of your connected wallet balance and Gateway Balance.
+**Native** — use funds available in your connected wallet.
+
+**Gateway Balance** — use USDC available in your Circle Gateway balance.
+
+**Native/Gateway** — use a combination of your connected wallet balance and Gateway Balance.
 
 Gateway Balance and Native/Gateway funding are available for USDC. Custom ERC-20 tokens use Native funding.
 
@@ -57,7 +61,7 @@ Before signing, verify:
 
 Submit the transaction from your wallet.
 
-Splitty builds the individual token transfers into a batch and executes them through **Multicall3From**.
+Splitty builds the individual token transfers into a batch and executes them through Multicall3From.
 
 ## 8. Verify
 
@@ -65,4 +69,6 @@ After the transaction is mined, Splitty reads the receipt and reports recipient-
 
 If a recipient fails while other calls succeed, the result can show the successful and failed recipients separately.
 
-> **Tip:** Start with a small testnet amount before running a large distribution.
+{% hint style="info" %}
+For production payments, use Arc Mainnet. Start with a small Arc Testnet amount when testing a new distribution flow.
+{% endhint %}

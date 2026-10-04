@@ -5,6 +5,8 @@ icon: right-left
 
 # Batch Transfers
 
+## Batch Transfers
+
 Splitty uses **Multicall3From** to turn multiple token transfers into a single transaction.
 
 Instead of asking the sender to approve and submit a separate transaction for every recipient, Splitty builds one transfer call per recipient and executes them together through the configured `Multicall3From` contract.
@@ -25,9 +27,12 @@ Each recipient receives their allocation through the same batch transaction, whi
 
 Custom ERC-20 token batches use `SplittyBatcher`. This Splitty contract executes transfers for custom tokens only.
 
-Splitty routes a custom-token distribution to `SplittyBatcher` rather than the standard Multicall3From path. The contract is deployed on Arc Testnet at [`0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3`](https://testnet.arcscan.app/address/0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3).
+Splitty uses a network-specific SplittyBatcher deployment:
 
-USDC batches continue to use Multicall3From. See [contract-addresses.md](../reference/contract-addresses.md "mention") for both execution contracts.
+* **Arc Mainnet:** `0x941E49c0cF2F76Cc4f79D9fd1E4A892893e90032`
+* **Arc Testnet:** `0x5b09dB6bC8085032aC2E63ADa99de0d4c8F414c3`
+
+USDC batches continue to use Multicall3From. The same Multicall3From path is used on both Arc Mainnet and Arc Testnet.
 
 ## Equal mode
 
