@@ -23,11 +23,6 @@ site:
       url: https://github.com/SPLITTY-ORG/SPLITTY
       draft: true
     - type: external-link
-      key: external-link-2
-      title: Arc
-      url: https://docs.arc.io/
-      draft: true
-    - type: external-link
       key: external-link-3
       title: website
       url: https://splitty.live
