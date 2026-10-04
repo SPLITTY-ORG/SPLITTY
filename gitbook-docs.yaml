@@ -21,7 +21,6 @@ site:
       key: external-link-1
       title: GitHub
       url: https://github.com/SPLITTY-ORG/SPLITTY
-      draft: true
     - type: external-link
       key: external-link-3
       title: website
