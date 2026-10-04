@@ -347,7 +347,7 @@ function App() {
                 Docs
               </a>
               <a
-                href={IS_MAINNET ? "https://splitty-testnet.vercel.app" : "https://splittyonarc.vercel.app"}
+                href={IS_MAINNET ? "https://splitty-testnet.vercel.app" : "https://splitty.live"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(242,177,52,0.18)] bg-[#1D1712]/70 px-3 py-1.5 font-mono text-[11px] text-[#9C917E] transition-colors hover:border-[rgba(242,177,52,0.4)] hover:text-[#F2B134]"
