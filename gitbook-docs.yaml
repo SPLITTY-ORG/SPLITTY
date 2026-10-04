@@ -30,5 +30,5 @@ site:
     - type: external-link
       key: external-link-3
       title: website
-      url: https://splittyarc.vercel.app/
+      url: https://splitty.live
       draft: true
