@@ -40,10 +40,10 @@ const config = IS_MAINNET
       transports: {
         [arc.id]: http(import.meta.env.VITE_ARC_MAINNET_RPC_URL || "https://rpc.mainnet.arc.io"),
         [base.id]: http("https://mainnet.base.org"),
-        [mainnet.id]: http("https://cloudflare-eth.com"),
+        [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
         [optimism.id]: http("https://mainnet.optimism.io"),
         [avalanche.id]: http("https://api.avax.network/ext/bc/C/rpc"),
-        [polygon.id]: http("https://polygon-rpc.com"),
+        [polygon.id]: http("https://polygon-bor-rpc.publicnode.com"),
       },
     })
   : createConfig({

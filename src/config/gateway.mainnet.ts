@@ -72,7 +72,7 @@ export const chainConfig = {
     addParams: {
       chainId: `0x${mainnet.id.toString(16)}`,
       chainName: "Ethereum",
-      rpcUrls: ["https://cloudflare-eth.com"],
+      rpcUrls: ["https://ethereum-rpc.publicnode.com"],
       nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
       blockExplorerUrls: ["https://etherscan.io"],
     },
@@ -120,7 +120,7 @@ export const chainConfig = {
     addParams: {
       chainId: `0x${polygon.id.toString(16)}`,
       chainName: "Polygon PoS",
-      rpcUrls: ["https://polygon-rpc.com"],
+      rpcUrls: ["https://polygon-bor-rpc.publicnode.com"],
       nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
       blockExplorerUrls: ["https://polygonscan.com"],
     },
