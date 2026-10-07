@@ -54,9 +54,10 @@ async function fetchWalletBalance(
 ): Promise<string> {
   const chain = Object.values(chainConfig).find(c => c.chainId === chainId);
   if (!chain) throw new Error(`Chain ${chainId} not configured`);
+  const rpcUrl = chain.chain.rpcUrls?.default?.http?.[0];
   const client = createPublicClient({
     chain: chain.chain,
-    transport: http(),
+    transport: http(rpcUrl),
   });
   const balance = await client.readContract({
     address: tokenAddress,
