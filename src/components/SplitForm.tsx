@@ -1946,14 +1946,15 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           </div>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mb-4 flex flex-col gap-2">
           <label className="field-label text-amber text-xs uppercase tracking-wider flex items-center gap-1">
             <Folder size={14} className="inline-block" /> Load a saved list?
           </label>
+          <div className="flex items-center gap-2">
           <select
             ref={savedListSelectRef}
             onChange={(e) => loadList(e.target.value)}
-            className="flex-1 select text-sm"
+            className="flex-1 min-w-0 select text-sm"
             defaultValue=""
           >
             <option value="" disabled>Select a list…</option>
@@ -1976,6 +1977,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               Delete
             </button>
           )}
+          </div>
         </div>
 
         <div className="flex gap-2 mb-4">
