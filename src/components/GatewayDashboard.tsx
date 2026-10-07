@@ -894,8 +894,8 @@ export function GatewayDashboard() {
                 )}
               </button>
               <div className="text-xs text-[#9C917E] space-y-1 break-words leading-relaxed">
-                {depositBalanceRaw && (
-                  <div>Balance: <span className="data-value">{parseFloat(formatUnits(depositBalanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
+                {depositBalanceRaw !== undefined && (
+                  <div>Balance: <span className="data-value">{parseFloat(formatUnits(BigInt(depositBalanceRaw ?? "0"), USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
                 )}
                 {allowanceRaw !== null && allowanceRaw !== undefined && (
                   <div>Allowance: <span className="data-value">{parseFloat(formatUnits(allowanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC</div>
