@@ -1472,7 +1472,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <span>gateway <span className="font-mono text-[#EDE3D0]">${unifiedTotal.toFixed(2)}</span></span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           {[
             { key: "arc", iconKey: "arc" as const, label: IS_MAINNET ? "Arc" : "Arc Testnet", active: chainId === (IS_MAINNET ? 5042 : 5042002) },
             { key: "base", iconKey: "base" as const, label: IS_MAINNET ? "Base" : "Base Sepolia", active: chainId === (IS_MAINNET ? 8453 : 84532) },
@@ -1605,7 +1605,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
             <Split size={14} className="inline-block" /> How should this be split?
           </label>
-          <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
+          <div className="flex flex-col sm:flex-row gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             <button
               type="button"
               onClick={() => { setIsEqualMode(true); setValue("splitMode", "equal"); play("click"); }}
@@ -1667,8 +1667,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               const isPlanned = src === "unified" || src === "hybrid";
               // Custom labels for funding sources
               let label = src.toUpperCase();
-              if (src === "unified") label = "GATEWAY BALANCE";
-              if (src === "hybrid") label = "NATIVE/GATEWAY";
+              let labelShort = src.toUpperCase();
+              if (src === "unified") { label = "GATEWAY BALANCE"; labelShort = "GATEWAY"; }
+              if (src === "hybrid") { label = "NATIVE/GATEWAY"; labelShort = "MIXED"; }
               return (
                 <button
                   key={src}
@@ -1685,11 +1686,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                       ? "bg-amber text-[#15100B]"
                       : "text-[#9C917E] hover:text-[#EDE3D0]"
                   } ${isDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                  title={isDisabled ? `${label} — coming soon for custom tokens` : ""}
+                  title={isDisabled ? `${label} - coming soon for custom tokens` : ""}
                 >
-                  <span className="truncate">{label}</span>
+                  <span className="truncate"><span className="hidden sm:inline">{label}</span><span className="sm:hidden">{labelShort}</span></span>
                   {isDisabled && isPlanned && (
-                    <span className="ml-1 inline-flex items-center rounded-full bg-[rgba(242,177,52,0.15)] border border-[rgba(242,177,52,0.3)] px-1.5 py-0.5 text-[9px] font-mono text-[#F2B134] leading-none">
+                    <span className="ml-1 hidden sm:inline-flex items-center rounded-full bg-[rgba(242,177,52,0.15)] border border-[rgba(242,177,52,0.3)] px-1.5 py-0.5 text-[9px] font-mono text-[#F2B134] leading-none">
                       SOON
                     </span>
                   )}
