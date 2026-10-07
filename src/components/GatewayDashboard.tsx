@@ -486,7 +486,7 @@ export function GatewayDashboard() {
             <p className="text-xs text-[#9C917E] mt-1 leading-relaxed">
               The Gateway is like a <span className="text-[#F2B134]">unified wallet</span> that holds your USDC
               across multiple blockchains. You can <span className="text-[#F2B134]">deposit</span> USDC from other chains
-              (like Base or Ethereum Sepolia) into your Gateway balance, then <span className="text-[#F2B134]">bridge</span> it to Arc
+              (like Base or {IS_MAINNET ? "Ethereum" : "Ethereum Sepolia"}) into your Gateway balance, then <span className="text-[#F2B134]">bridge</span> it to Arc
               instantly — all without paying high gas fees per transfer.
             </p>
             <p className="text-xs text-[#6B5F4F] mt-1">
@@ -733,6 +733,29 @@ export function GatewayDashboard() {
                         </span>
                       </div>
                     ))}
+
+                    {/* Sending + Total summary */}
+                    {(() => {
+                      const sending = parseFloat(fastDepositAmount) || 0;
+                      const totalFees = (fastDepositEstimate.fees ?? [])
+                        .filter((f: any) => (f.token || "USDC") === "USDC")
+                        .reduce((sum: number, f: any) => sum + (parseFloat(f.amount) || 0), 0);
+                      const total = sending + totalFees;
+                      return (
+                        <>
+                          <div className="border-t border-[rgba(242,177,52,0.12)] mt-2 pt-2">
+                            <div className="receipt-row text-xs py-1">
+                              <span className="receipt-address text-[#EDE3D0]">Sending</span>
+                              <span className="receipt-amount text-[#EDE3D0]">{sending.toFixed(6)} USDC</span>
+                            </div>
+                            <div className="receipt-row text-xs py-1">
+                              <span className="receipt-address text-[#F2B134] font-semibold">Total</span>
+                              <span className="receipt-amount text-[#F2B134] font-semibold">{total.toFixed(6)} USDC</span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <button

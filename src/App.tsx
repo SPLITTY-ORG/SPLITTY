@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Toaster } from "react-hot-toast";
+import { SwipeableToaster } from "./components/SwipeableToaster";
 import { usePrivy, useWallets, useLogin } from "@privy-io/react-auth";
 import { useChainId } from "wagmi";
 import { formatUnits } from "viem";
@@ -365,7 +365,7 @@ function App() {
   // ========== AUTHENTICATED APP ==========
   return (
     <div className="min-h-screen bg-[#15100B] text-[#EDE3D0] p-4 md:p-6">
-      <Toaster position="top-right" toastOptions={{ duration: 5000 }} />
+      <SwipeableToaster />
       <div className="max-w-7xl mx-auto">
         <nav className="flex flex-wrap items-center justify-between gap-y-2 border-b border-[rgba(242,177,52,0.16)] pb-2 mb-6 gap-x-2">
           <div className="flex items-center gap-2 sm:gap-4">
