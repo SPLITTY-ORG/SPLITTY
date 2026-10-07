@@ -226,11 +226,11 @@ export function GatewayDeposit() {
         </button>
       </div>
 
-      {balanceData && (
+      {balanceData !== undefined && (
         <p className="mt-2 font-mono text-[11px] text-[#6B5F4F]">
           Balance:{" "}
           <span className="text-[#9C917E]">
-            {formatUnits(balanceData.value, USDC_DECIMALS)} USDC
+            {formatUnits(balanceData?.value ?? 0n, USDC_DECIMALS)} USDC
           </span>{" "}
           on {selectedConfig.label}
         </p>
