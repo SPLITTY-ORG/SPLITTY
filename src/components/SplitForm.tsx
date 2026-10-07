@@ -1472,7 +1472,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <span>gateway <span className="font-mono text-[#EDE3D0]">${unifiedTotal.toFixed(2)}</span></span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           {[
             { key: "arc", iconKey: "arc" as const, label: IS_MAINNET ? "Arc" : "Arc Testnet", active: chainId === (IS_MAINNET ? 5042 : 5042002) },
             { key: "base", iconKey: "base" as const, label: IS_MAINNET ? "Base" : "Base Sepolia", active: chainId === (IS_MAINNET ? 8453 : 84532) },
@@ -1605,7 +1605,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
             <Split size={14} className="inline-block" /> How should this be split?
           </label>
-          <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
+          <div className="flex flex-col sm:flex-row gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
             <button
               type="button"
               onClick={() => { setIsEqualMode(true); setValue("splitMode", "equal"); play("click"); }}

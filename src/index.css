@@ -121,7 +121,7 @@
 
   /* Network pills */
   .network-pill {
-    @apply inline-flex items-center gap-2 px-2 py-1 rounded-full text-sm font-mono transition;
+    @apply inline-flex items-center gap-2 px-2 py-1 rounded-full text-sm font-mono transition whitespace-nowrap;
   }
   .network-pill-active {
     @apply text-[#F2B134] bg-[#F2B134]/10 ring-1 ring-[#F2B134]/30;
