@@ -797,34 +797,50 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
   const handleBulkPaste = () => {
     if (!bulkInput.trim()) {
-      toastError("Please paste some addresses and amounts");
+      toastError(isEqualMode ? "Please paste some addresses" : "Please paste some addresses and amounts");
       return;
     }
     const lines = bulkInput.split("\n").filter((line) => line.trim());
     const newRecipients: Recipient[] = [];
     const errors: string[] = [];
-    lines.forEach((line, index) => {
-      const parts = line.split(/[,\t]+/).map((s) => s.trim());
-      if (parts.length < 2) {
-        errors.push(`Line ${index + 1}: missing amount`);
-        return;
-      }
-      const addr = parts[0];
-      const amt = parts[1];
-      if (!isAddress(addr)) {
-        errors.push(`Line ${index + 1}: invalid address "${addr}"`);
-        return;
-      }
-      if (isNaN(parseFloat(amt)) || parseFloat(amt) <= 0) {
-        errors.push(`Line ${index + 1}: invalid amount "${amt}"`);
-        return;
-      }
-      if (exceedsTokenPrecision(amt, activeDecimals)) {
-        errors.push(`Line ${index + 1}: "${amt}" has more than ${activeDecimals} decimal places`);
-        return;
-      }
-      newRecipients.push({ address: getAddress(addr), amount: amt });
-    });
+
+    if (isEqualMode) {
+      // Equal mode: each line is just an address (ignore any amount column)
+      const equalAmt = getEqualAmount();
+      lines.forEach((line, index) => {
+        const addr = line.split(/[,\t]+/)[0].trim();
+        if (!isAddress(addr)) {
+          errors.push(`Line ${index + 1}: invalid address "${addr}"`);
+          return;
+        }
+        newRecipients.push({ address: getAddress(addr), amount: equalAmt });
+      });
+    } else {
+      // Custom mode: each line must be address,amount
+      lines.forEach((line, index) => {
+        const parts = line.split(/[,\t]+/).map((s) => s.trim());
+        if (parts.length < 2) {
+          errors.push(`Line ${index + 1}: missing amount`);
+          return;
+        }
+        const addr = parts[0];
+        const amt = parts[1];
+        if (!isAddress(addr)) {
+          errors.push(`Line ${index + 1}: invalid address "${addr}"`);
+          return;
+        }
+        if (isNaN(parseFloat(amt)) || parseFloat(amt) <= 0) {
+          errors.push(`Line ${index + 1}: invalid amount "${amt}"`);
+          return;
+        }
+        if (exceedsTokenPrecision(amt, activeDecimals)) {
+          errors.push(`Line ${index + 1}: "${amt}" has more than ${activeDecimals} decimal places`);
+          return;
+        }
+        newRecipients.push({ address: getAddress(addr), amount: amt });
+      });
+    }
+
     if (errors.length > 0) {
       toastError(errors.join(" | "));
       return;
@@ -1909,11 +1925,16 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             </label>
             <textarea
               rows={2}
-              placeholder="0x123...,1.5&#10;0x456...,2.0"
+              placeholder={isEqualMode ? "0x123...\n0x456..." : "0x123...,1.5\n0x456...,2.0"}
               value={bulkInput}
               onChange={(e) => setBulkInput(e.target.value)}
               className="input text-sm font-mono"
             />
+            <p className="helper-text text-xs mt-1">
+              {isEqualMode
+                ? <>One address per line \u2014 each gets <span className="font-mono text-amber">{getEqualAmount() || "\u2014"} {tokenSymbol}</span></>
+                : <>One <span className="font-mono">address,amount</span> per line</>}
+            </p>
             <button
               type="button"
               onClick={handleBulkPaste}

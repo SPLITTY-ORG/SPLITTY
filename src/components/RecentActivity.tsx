@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "wagmi";
 
@@ -7,39 +7,43 @@ export function RecentActivity({ onViewAll }: { onViewAll?: () => void }) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchRecent = useCallback(async () => {
     if (!address) return;
-    let isMounted = true;
+    const { data, error } = await supabase
+      .from("transaction_history")
+      .select("*")
+      .eq("wallet_address", address)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (!error && data) setActivities(data);
+    setLoading(false);
+  }, [address]);
 
-    const fetchRecent = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("transaction_history")
-        .select("*")
-        .eq("wallet_address", address)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (isMounted && !error && data) setActivities(data);
-      if (isMounted) setLoading(false);
-    };
-
+  useEffect(() => {
+    setLoading(true);
     fetchRecent();
 
-    // Realtime: push new rows immediately
+    if (!address) return;
+
     const channel = supabase
       .channel(`recent-activity-${address}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "transaction_history", filter: `wallet_address=eq.${address}` },
-        () => { fetchRecent(); }
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "transaction_history",
+          filter: `wallet_address=eq.${address}`,
+        },
+        (payload) => {
+          // Prepend the new row immediately — no re-fetch, no loading flash
+          setActivities((prev) => [payload.new as any, ...prev].slice(0, 5));
+        }
       )
       .subscribe();
 
-    return () => {
-      isMounted = false;
-      supabase.removeChannel(channel);
-    };
-  }, [address]);
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchRecent, address]);
 
   if (loading) return <div className="panel text-xs text-[#9C917E]">Loading...</div>;
   if (activities.length === 0) return <div className="panel text-xs text-[#9C917E]">No recent activity</div>;
@@ -76,7 +80,6 @@ export function RecentActivity({ onViewAll }: { onViewAll?: () => void }) {
               </div>
             );
           } else {
-            // Split
             const total = data?.totalAmount || "0";
             const count = data?.recipients?.length || 0;
             const funding = data?.fundingSource || "native";

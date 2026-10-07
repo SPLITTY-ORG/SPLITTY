@@ -159,6 +159,12 @@ export const BRIDGE_SOURCE_CHAIN_KEYS = [
 export const CHAIN_KEYS =
   STANDARD_GATEWAY_CHAIN_KEYS as readonly StandardGatewayChainKey[];
 
+/**
+ * Source-only chains for the deposit picker (excludes arc, which is the destination).
+ * Aliased to BRIDGE_SOURCE_CHAIN_KEYS for consistency with the mainnet config shape.
+ */
+export const GATEWAY_SOURCE_CHAIN_KEYS = BRIDGE_SOURCE_CHAIN_KEYS;
+
 export const FAST_DEPOSIT_ROUTES = [
   {
     id: "ethereum-sepolia-to-arc",

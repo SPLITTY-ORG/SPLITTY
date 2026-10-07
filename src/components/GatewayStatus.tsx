@@ -1,5 +1,6 @@
 import { useGatewayBalance, useInvalidateBalances } from "../hooks/useBalances";
 import { chainConfig, GATEWAY_BALANCE_CHAIN_KEYS } from "../config/gateway.active";
+import { ChainIcon } from "./ChainIcon";
 import { RefreshCw } from "lucide-react";
 
 export function GatewayStatus() {
@@ -41,8 +42,9 @@ export function GatewayStatus() {
         {balances.map((b) => {
           const amount = parseFloat(b.balance || "0");
           return (
-            <div key={b.key} className="flex justify-between">
-              <span className={amount > 0 ? "text-[#9C917E]" : "text-[#6B5F4F]"}>
+            <div key={b.key} className="flex justify-between items-center">
+              <span className={`flex items-center gap-1.5 ${amount > 0 ? "text-[#9C917E]" : "text-[#6B5F4F]"}`}>
+                <ChainIcon iconKey={chainConfig[b.key].iconKey} size="sm" />
                 {b.label}
               </span>
               <span className={amount > 0 ? "text-[#EDE3D0]" : "text-[#6B5F4F]"}>

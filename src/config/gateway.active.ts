@@ -33,5 +33,10 @@ export const BRIDGE_SOURCE_CHAIN_KEYS = IS_MAINNET
   ? mainnet.BRIDGE_SOURCE_CHAIN_KEYS
   : testnet.BRIDGE_SOURCE_CHAIN_KEYS;
 
+// Source-only chains (excludes arc on mainnet; matches CHAIN_KEYS on mainnet, excludes arc on testnet too for deposit UI)
+export const GATEWAY_SOURCE_CHAIN_KEYS = IS_MAINNET
+  ? mainnet.GATEWAY_SOURCE_CHAIN_KEYS
+  : testnet.GATEWAY_SOURCE_CHAIN_KEYS;
+
 // Unified ChainKey type covering both envs
 export type ChainKey = keyof typeof testnet.chainConfig | keyof typeof mainnet.chainConfig;

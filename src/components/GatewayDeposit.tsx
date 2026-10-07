@@ -10,7 +10,7 @@ import {
 import { parseUnits, formatUnits, erc20Abi } from "viem";
 import toast from "react-hot-toast";
 import { ChevronDown } from "lucide-react";
-import { GATEWAY_WALLET_ADDRESS, chainConfig, CHAIN_KEYS, type ChainKey } from "../config/gateway.active";
+import { GATEWAY_WALLET_ADDRESS, chainConfig, GATEWAY_SOURCE_CHAIN_KEYS, type ChainKey } from "../config/gateway.active";
 import { ChainIcon } from "./ChainIcon";
 
 const GATEWAY_WALLET_ABI = [
@@ -74,7 +74,7 @@ function ChainPicker({ value, onChange }: ChainPickerProps) {
       {/* Dropdown */}
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[220px] rounded-lg border border-[#3A2F22] bg-[#1D1712] py-1 shadow-xl">
-          {CHAIN_KEYS.map((key) => {
+          {GATEWAY_SOURCE_CHAIN_KEYS.map((key) => {
             const cfg = chainConfig[key];
             const active = key === value;
             return (
@@ -110,7 +110,7 @@ export function GatewayDeposit() {
   const { switchChain } = useSwitchChain();
   const [amount, setAmount] = useState("");
   const [isDepositing, setIsDepositing] = useState(false);
-  const [selectedChainKey, setSelectedChainKey] = useState<ChainKey>("arc");
+  const [selectedChainKey, setSelectedChainKey] = useState<ChainKey>(GATEWAY_SOURCE_CHAIN_KEYS[0]);
 
   const selectedConfig = chainConfig[selectedChainKey];
   const usdcAddress = selectedConfig.usdcAddress;
