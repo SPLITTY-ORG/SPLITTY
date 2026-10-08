@@ -63,11 +63,11 @@ function ChainPicker({ value, onChange }: ChainPickerProps) {
         <ChainIcon iconKey={chainConfig[value].iconKey} size="sm" />
         <span className="font-mono text-xs">
           {selected.label}{" "}
-          <span className="text-[#6B5F4F]">(Gateway)</span>
+          <span className="text-[#8C806D]">(Gateway)</span>
         </span>
         <ChevronDown
           size={13}
-          className={`ml-1 text-[#6B5F4F] transition-transform ${open ? "rotate-180" : ""}`}
+          className={`ml-1 text-[#8C806D] transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -89,7 +89,7 @@ function ChainPicker({ value, onChange }: ChainPickerProps) {
                 <ChainIcon iconKey={chainConfig[key].iconKey} size="sm" />
                 <span className="font-mono text-xs text-[#EDE3D0]">
                   {cfg.label}{" "}
-                  <span className="text-[#6B5F4F]">(Gateway)</span>
+                  <span className="text-[#8C806D]">(Gateway)</span>
                 </span>
                 {active && (
                   <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#F2B134]" />
@@ -197,7 +197,7 @@ export function GatewayDeposit() {
 
   return (
     <div className="rounded-lg border border-[#3A2F22] bg-[#1D1712]/70 p-4">
-      <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em] text-[#6B5F4F]">
+      <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em] text-[#8C806D]">
         Deposit USDC from another chain to Gateway
       </p>
 
@@ -210,7 +210,7 @@ export function GatewayDeposit() {
           placeholder="Amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="flex-1 rounded-lg border border-[#3A2F22] bg-[#29221A] px-3 py-2 font-mono text-sm text-[#EDE3D0] placeholder-[#6B5F4F] focus:border-[rgba(242,177,52,0.4)] focus:outline-none"
+          className="flex-1 rounded-lg border border-[#3A2F22] bg-[#29221A] px-3 py-2 font-mono text-sm text-[#EDE3D0] placeholder-[#8C806D] focus:border-[rgba(242,177,52,0.4)] focus:outline-none"
         />
 
         <button
@@ -218,7 +218,7 @@ export function GatewayDeposit() {
           disabled={isDepositing || totalPending || !address}
           className={`rounded-lg px-4 py-2 font-mono text-sm font-bold transition ${
             isDepositing || totalPending || !address
-              ? "cursor-not-allowed bg-[#29221A] text-[#6B5F4F]"
+              ? "cursor-not-allowed bg-[#29221A] text-[#8C806D]"
               : "bg-[#F2B134] text-[#15100B] hover:bg-[#FFC65A]"
           }`}
         >
@@ -227,7 +227,7 @@ export function GatewayDeposit() {
       </div>
 
       {balanceData !== undefined && (
-        <p className="mt-2 font-mono text-[11px] text-[#6B5F4F]">
+        <p className="mt-2 font-mono text-[11px] text-[#8C806D]">
           Balance:{" "}
           <span className="text-[#9C917E]">
             {formatUnits(balanceData?.value ?? 0n, USDC_DECIMALS)} USDC
@@ -236,14 +236,14 @@ export function GatewayDeposit() {
         </p>
       )}
       {allowance !== undefined && (
-        <p className="mt-1 font-mono text-[11px] text-[#6B5F4F]">
+        <p className="mt-1 font-mono text-[11px] text-[#8C806D]">
           Allowance:{" "}
           <span className="text-[#9C917E]">
             {formatUnits(allowance as bigint, USDC_DECIMALS)} USDC
           </span>
         </p>
       )}
-      <p className="mt-2 font-mono text-[11px] text-[#6B5F4F]">
+      <p className="mt-2 font-mono text-[11px] text-[#8C806D]">
         USDC will be deposited into your unified Gateway balance.
       </p>
     </div>
