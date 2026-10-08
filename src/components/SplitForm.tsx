@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { parse as parseCSV } from "csv-parse/sync";
 import {
@@ -51,6 +51,9 @@ import {
   LoaderCircle,
   AlertTriangle,
   XCircle,
+  ChevronDown,
+  ChevronUp,
+  Copy,
 } from "lucide-react";
 import { ChainIcon } from "./ChainIcon";
 
@@ -217,6 +220,139 @@ const CHAIN_IDENTIFIERS_MAINNET: Record<string, string> = {
   op: "Optimism",
 };
 
+// ── In-style confirm modal ───────────────────────────────────────────────────
+interface ConfirmModalProps {
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+function ConfirmModal({ message, onConfirm, onCancel }: ConfirmModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+      <div className="bg-[#1D1712] border border-[rgba(242,177,52,0.22)] max-w-sm w-full p-5">
+        <p className="text-sm text-[#EDE3D0] leading-relaxed mb-5">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancel} className="btn-secondary text-xs py-1.5 px-4">Cancel</button>
+          <button onClick={onConfirm} className="btn-primary text-xs py-1.5 px-4">Confirm</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ReviewModal ───────────────────────────────────────────────────────────────
+interface ReviewModalProps {
+  pendingData: { recipients: { address: string; amount: string }[] };
+  tokenSymbol: string;
+  activeDecimals: number;
+  validRecipientsCount: number;
+  getTotalToSend: () => number;
+  fundingSource: string;
+  nativeContribution: number;
+  unifiedContribution: number;
+  isCustomToken: boolean;
+  arcSwitch: { isMismatched: boolean };
+  isLoading: boolean;
+  isReviewConfirmDisabled: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function ReviewModal({
+  pendingData, tokenSymbol, activeDecimals, validRecipientsCount,
+  getTotalToSend, fundingSource, nativeContribution, unifiedContribution,
+  isCustomToken, arcSwitch, isLoading, isReviewConfirmDisabled,
+  onCancel, onConfirm,
+}: ReviewModalProps) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null);
+
+  const copyAddr = (addr: string) => {
+    navigator.clipboard.writeText(addr);
+    setCopiedAddr(addr);
+    setTimeout(() => setCopiedAddr(null), 1500);
+  };
+
+  const valid = pendingData.recipients.filter(r => r.address.trim() && r.amount.trim());
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1D1712] border border-[rgba(242,177,52,0.16)] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.20em] text-[#B8923F] mb-1">Review Split</h3>
+        <div className="space-y-4">
+          <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] p-4">
+            {[
+              ["Token", <span className="data-value font-bold text-amber">{tokenSymbol}</span>],
+              ["Recipients", <span className="data-value font-bold">{validRecipientsCount}</span>],
+              ["Total", <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>],
+              ["Funding", <span className="data-value">{fundingSource === "unified" ? "GATEWAY BALANCE" : fundingSource === "hybrid" ? "NATIVE/GATEWAY" : fundingSource.toUpperCase()}</span>],
+              ...(fundingSource !== "native" ? [
+                ["Native", <span className="data-value">{nativeContribution.toFixed(activeDecimals)} {tokenSymbol}</span>],
+                ["Gateway Balance", <span className="data-value">{unifiedContribution.toFixed(activeDecimals)} {tokenSymbol}</span>],
+              ] : []),
+              ["Network", <span className="data-value">Arc</span>],
+            ].map(([label, value], i) => (
+              <div key={i} className="flex justify-between text-sm mt-2 first:mt-0">
+                <span className="field-label">{label as string}</span>
+                {value as React.ReactNode}
+              </div>
+            ))}
+
+            {/* Execution details toggle */}
+            <div className="mt-3 pt-3 border-t border-[rgba(242,177,52,0.10)]">
+              <button
+                onClick={() => setDetailsOpen(o => !o)}
+                className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-[#8C806D] hover:text-[#EDE3D0] transition"
+              >
+                {detailsOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                Technical details
+              </button>
+              {detailsOpen && (
+                <div className="mt-2 text-xs font-mono text-[#8C806D] space-y-1">
+                  <div>Execution: <span className="text-[#EDE3D0]">{isCustomToken ? "SplittyBatcher" : "Multicall3From"}</span></div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recipients list with copyable full addresses */}
+          <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] p-4 max-h-60 overflow-y-auto">
+            <p className="field-label mb-2">Recipients ({valid.length})</p>
+            {valid.map((r, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 py-1.5 border-b border-[rgba(242,177,52,0.08)] last:border-0">
+                <button
+                  onClick={() => copyAddr(r.address)}
+                  title={r.address}
+                  className="receipt-address text-left hover:text-[#EDE3D0] transition flex items-center gap-1.5"
+                >
+                  {r.address.slice(0, 8)}…{r.address.slice(-6)}
+                  {copiedAddr === r.address
+                    ? <Check size={10} className="text-[#4ADE80]" />
+                    : <Copy size={10} className="opacity-40" />}
+                </button>
+                <span className="receipt-amount shrink-0">{r.amount} {tokenSymbol}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onCancel} className="flex-1 btn-secondary">Cancel</button>
+            <button
+              onClick={onConfirm}
+              disabled={isReviewConfirmDisabled}
+              className={`flex-1 btn-primary inline-flex items-center justify-center gap-1.5 ${isReviewConfirmDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
+            >
+              {arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : (
+                <><CheckCircle size={14} /> Confirm &amp; Send</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type FundingSource = "native" | "unified" | "hybrid";
 type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | "confirmed" | "partial" | "failed";
 
@@ -226,6 +362,11 @@ interface SplitFormProps {
 
 export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
   const [csvError, setCsvError] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+
+  const showConfirm = useCallback((message: string, onConfirm: () => void) => {
+    setConfirmModal({ message, onConfirm });
+  }, []);
   const [isEqualMode, setIsEqualMode] = useState(false); // default to CUSTOM
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txHash, setTxHash] = useState<Address | null>(null);
@@ -258,6 +399,7 @@ export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
   const [failedRecipients, setFailedRecipients] = useState<RecipientOutcome[]>([]);
   const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
   const [showAllRecipients, setShowAllRecipients] = useState(false);
+  const [gatewayAdvancedOpen, setGatewayAdvancedOpen] = useState(false);
 
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -340,7 +482,7 @@ export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
   );
   const selectedUSDCAddress = selectedChainConfig?.usdcAddress ?? USDC_ADDRESS;
 
-  const { data: balanceRaw, refetch: refetchBalance } = useWalletBalance(
+  const { data: balanceRaw, refetch: refetchBalance, isLoading: isBalanceLoading } = useWalletBalance(
     activeTokenAddress,
     chainIdForBalance
   );
@@ -456,24 +598,33 @@ export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
     const list = savedLists.find(l => l.id === listId);
     if (!list) return;
     const hasUnsavedWork = recipients.some(r => r.address.trim() || r.amount.trim());
-    if (hasUnsavedWork && !confirm(`Load "${list.list_name}"? This will replace the recipients currently in the form.`)) {
+    if (hasUnsavedWork) {
+      setConfirmModal({
+        message: `Load "${list.list_name}"? This will replace the recipients currently in the form.`,
+        onConfirm: () => {
+          setConfirmModal(null);
+          _doLoadList(list);
+        },
+      });
       return;
     }
-    // Start a fresh split session when loading a saved list.
-setPendingData(null);
-setShowReview(false);
-setStatus("idle");
-setStatusMessage("");
-setTxLabel("");
-setTxError(null);
-setTxHash(null);
-setBridgeTxHash(null);
-setIsSubmitting(false);
-setFailedRecipients([]);
-setPendingBridge(null);
+    _doLoadList(list);
+  };
 
+  const _doLoadList = (list: SavedList) => {
+    setPendingData(null);
+    setShowReview(false);
+    setStatus("idle");
+    setStatusMessage("");
+    setTxLabel("");
+    setTxError(null);
+    setTxHash(null);
+    setBridgeTxHash(null);
+    setIsSubmitting(false);
+    setFailedRecipients([]);
+    setPendingBridge(null);
     resetWrite();
-setValue("recipients", list.recipients);
+    setValue("recipients", list.recipients);
     toastSuccess(`Loaded "${list.list_name}"`);
     play("click");
   };
@@ -491,19 +642,38 @@ setValue("recipients", list.recipients);
     }
     setIsSavingList(true);
     const existing = savedLists.find(l => l.list_name === listName);
-    if (existing && !confirm(`A list named "${listName}" already exists. Overwrite it?`)) {
+    if (existing) {
       setIsSavingList(false);
+      setConfirmModal({
+        message: `A list named "${listName}" already exists. Overwrite it?`,
+        onConfirm: async () => {
+          setConfirmModal(null);
+          setIsSavingList(true);
+          await _doSaveList(existing.id, null, currentRecipients, listName);
+        },
+      });
       return;
     }
-    const { error } = existing
+    await _doSaveList(null, address, currentRecipients, listName);
+    setIsSavingList(false);
+  };
+
+  const _doSaveList = async (
+    existingId: string | null,
+    walletAddress: string | undefined,
+    currentRecipients: Recipient[],
+    listName: string,
+  ) => {
+    setIsSavingList(true);
+    const { error } = existingId !== null
       ? await supabase
           .from("saved_recipient_lists")
           .update({ recipients: currentRecipients })
-          .eq("id", existing.id)
+          .eq("id", existingId)
       : await supabase
           .from("saved_recipient_lists")
           .insert({
-            wallet_address: address,
+            wallet_address: walletAddress,
             list_name: listName,
             recipients: currentRecipients,
           });
@@ -724,11 +894,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
   const clearAll = () => {
     if (recipients.length === 0) return;
-    if (confirm("Remove all recipients?")) {
+    showConfirm("Remove all recipients?", () => {
       setValue("recipients", [{ address: "", amount: "" }]);
       play("click");
       setShowAllRecipients(false);
-    }
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -1443,7 +1613,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
   const getStatusColor = () => {
     switch (status) {
-      case "building": return "text-[#8A6A2C]";
+      case "building": return "text-[#B8923F]";
       case "funding": return "text-amber";
       case "confirming": return "text-amber";
       case "broadcasting": return "text-amber";
@@ -1457,18 +1627,34 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
   const displayFields = showAllRecipients ? fields : fields.slice(0, 10);
   const hiddenCount = fields.length - 10;
 
+  // Four-step progress bar
+  const PROGRESS_STEPS = ["BUILDING", "FUNDING", "CONFIRMING", "BROADCASTING"] as const;
+  const progressIndex = status === "building" ? 0 : status === "funding" ? 1 : status === "confirming" ? 2 : status === "broadcasting" ? 3 : -1;
+  const progressDone = status === "confirmed" || status === "partial";
+  const progressFailed = status === "failed";
+
   return (
     <div className="space-y-6">
+      {/* ── Confirm modal ──────────────────────────────────────────────────── */}
+      {confirmModal && (
+        <ConfirmModal
+          message={confirmModal.message}
+          onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
       {/* Unified Balance Panel */}
       <div className="panel flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="terminal-label text-xs">UNIFIED BALANCE</div>
           <div className="text-3xl font-bold font-mono text-[#F2B134]">
-            ${totalUSDC.toFixed(2)} USDC
+            {isBalanceLoading
+              ? <span className="inline-block w-32 h-7 bg-[#241B14] animate-pulse align-middle" />
+              : <>${totalUSDC.toFixed(2)} USDC</>}
           </div>
           <div className="flex flex-wrap gap-4 text-sm text-[#9C917E] mt-1">
             <span>wallet <span className="font-mono text-[#EDE3D0]">${nativeUSDCBalance.toFixed(2)}</span></span>
-            <span className="text-[#6B5F4F]">|</span>
+            <span className="text-[#8C806D]">|</span>
             <span>gateway <span className="font-mono text-[#EDE3D0]">${unifiedTotal.toFixed(2)}</span></span>
           </div>
         </div>
@@ -1535,7 +1721,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         )}
 
         <div className="mb-4">
-          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+          <p className="step-label mb-1">01 · ASSET</p>
+          <label className="field-label flex items-center gap-1 mb-1">
             <Coins size={14} className="inline-block" /> What asset are you sending?
           </label>
           <select
@@ -1589,7 +1776,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               {isAddress(customTokenAddress) && (
                 <div className="helper-text mt-1">
                   {isLoadingTokenMeta ? (
-                    <span className="text-[#6B5F4F] animate-pulse">Loading token info…</span>
+                    <span className="text-[#8C806D] animate-pulse">Loading token info…</span>
                   ) : (
                     <span className={tokenSymbol === "???" ? "text-[#C4553D]" : ""}>
                       {tokenSymbol === "???" ? "Could not load token — check the address" : `${tokenSymbol} (${tokenName}) • ${tokenDecimals} decimals`}
@@ -1602,14 +1789,15 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         </div>
 
         <div className="mb-4">
-          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+          <p className="step-label mb-1">02 · SPLIT MODE</p>
+          <label className="field-label flex items-center gap-1 mb-1">
             <Split size={14} className="inline-block" /> How should this be split?
           </label>
-          <div className="flex flex-col sm:flex-row gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
+          <div className="flex flex-col sm:flex-row gap-1 bg-[#241B14] p-1 border border-[rgba(242,177,52,0.16)]">
             <button
               type="button"
               onClick={() => { setIsEqualMode(true); setValue("splitMode", "equal"); play("click"); }}
-              className={`flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
+              className={`flex-1 px-3 py-1.5 font-mono text-sm transition ${
                 isEqualMode
                   ? "bg-amber text-[#15100B]"
                   : "text-[#9C917E] hover:text-[#EDE3D0]"
@@ -1620,7 +1808,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <button
               type="button"
               onClick={() => { setIsEqualMode(false); setValue("splitMode", "custom"); play("click"); }}
-              className={`flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
+              className={`flex-1 px-3 py-1.5 font-mono text-sm transition ${
                 !isEqualMode
                   ? "bg-amber text-[#15100B]"
                   : "text-[#9C917E] hover:text-[#EDE3D0]"
@@ -1633,7 +1821,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
         {isEqualMode && (
           <div className="mb-4">
-            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+            <label className="field-label flex items-center gap-1 mb-1">
               <SendIcon size={14} className="inline-block" /> How much are you sending?
             </label>
             <input
@@ -1653,15 +1841,16 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         )}
 
         <div className="mb-4">
-          <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
+          <p className="step-label mb-1">03 · FUNDING</p>
+          <label className="field-label flex items-center gap-1 mb-1">
             <Banknote size={14} className="inline-block" /> Where should the funds come from?
           </label>
           {isCustomToken && (
-            <p className="text-[10px] font-mono text-[#6B5F4F] mb-2">
+            <p className="text-[10px] font-mono text-[#8C806D] mb-2">
               Gateway and hybrid funding for custom tokens is a planned integration — only wallet balance is supported right now.
             </p>
           )}
-          <div className="flex gap-1 bg-[#241B14] rounded p-1 border border-[rgba(242,177,52,0.16)]">
+          <div className="flex gap-1 bg-[#241B14] p-1 border border-[rgba(242,177,52,0.16)]">
             {["native", "unified", "hybrid"].map((src) => {
               const isDisabled = isCustomToken && src !== "native";
               const isPlanned = src === "unified" || src === "hybrid";
@@ -1680,7 +1869,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                     }
                   }}
                   disabled={isDisabled}
-                  className={`relative flex-1 px-3 py-1.5 rounded font-mono text-sm transition ${
+                  className={`relative flex-1 px-3 py-1.5 font-mono text-sm transition ${
                     fundingSource === src
                       ? "bg-amber text-[#15100B]"
                       : "text-[#9C917E] hover:text-[#EDE3D0]"
@@ -1689,7 +1878,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                 >
                   <span className="truncate">{label}</span>
                   {isDisabled && isPlanned && (
-                    <span className="ml-1 inline-flex items-center rounded-full bg-[rgba(242,177,52,0.15)] border border-[rgba(242,177,52,0.3)] px-1.5 py-0.5 text-[9px] font-mono text-[#F2B134] leading-none">
+                    <span className="ml-1 inline-flex items-center bg-[rgba(242,177,52,0.15)] border border-[rgba(242,177,52,0.3)] px-1.5 py-0.5 text-[9px] font-mono text-[#F2B134] leading-none">
                       SOON
                     </span>
                   )}
@@ -1749,7 +1938,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                       key={b.key}
                       type="button"
                       onClick={() => toggleGatewaySource(b.key)}
-                      className={`w-full flex items-center justify-between gap-2 rounded px-2 py-1.5 border text-xs font-mono transition ${
+                      className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 border text-xs font-mono transition ${
                         selected
                           ? "border-[rgba(242,177,52,0.35)] bg-[rgba(242,177,52,0.06)]"
                           : "border-transparent bg-transparent opacity-60"
@@ -1757,10 +1946,10 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                     >
                       <span className="flex items-center gap-2 min-w-0">
                         <span
-                          className={`w-3 h-3 shrink-0 rounded-sm border flex items-center justify-center ${
+                          className={`w-3 h-3 shrink-0 border flex items-center justify-center ${
                             selected
                               ? "border-amber bg-amber text-[#15100B]"
-                              : "border-[#6B5F4F]"
+                              : "border-[#8C806D]"
                           }`}
                         >
                           {selected && <Check size={12} className="inline-block" />}
@@ -1796,8 +1985,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         </div>
 
         {!isFullyFunded && !isBridging && (
-          <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-3 mb-4">
-            <div className="text-xs text-[#8A6A2C]">// FUND UNIFIED BALANCE</div>
+          <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] p-3 mb-4">
+            <div className="text-xs text-[#B8923F]">// FUND UNIFIED BALANCE</div>
             <div className="text-sm text-[#9C917E] mt-1">
               You have USDC available on:
             </div>
@@ -1810,8 +1999,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
               return (
                 <div key={b.domain} className="flex justify-between text-sm font-mono">
-                  <span className={amt > 0 ? "" : "text-[#6B5F4F]"}>{label}</span>
-                  <span className={amt > 0 ? "text-[#EDE3D0]" : "text-[#6B5F4F]"}>
+                  <span className={amt > 0 ? "" : "text-[#8C806D]"}>{label}</span>
+                  <span className={amt > 0 ? "text-[#EDE3D0]" : "text-[#8C806D]"}>
                     {amt.toFixed(6)} USDC
                   </span>
                 </div>
@@ -1851,7 +2040,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         )}
 
         {isBridging && (
-          <div className="bg-amber/10 border border-amber/30 rounded p-3 mb-4">
+          <div className="bg-amber/10 border border-amber/30 p-3 mb-4">
             <p className="text-amber text-sm">{bridgeProgress}</p>
             <p className="text-[#9C917E] text-xs mt-1">{networkStatus}</p>
             <button
@@ -1861,7 +2050,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             >
               Stop waiting
             </button>
-            <p className="text-[#6B5F4F] text-[10px] mt-1">
+            <p className="text-[#8C806D] text-[10px] mt-1">
               This only stops the countdown. The transfer cannot be cancelled
               once signed, and carries on either way.
             </p>
@@ -1869,7 +2058,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         )}
 
         {pendingBridge && !isBridging && (
-          <div className="bg-amber/10 border border-amber/30 rounded p-3 mb-4">
+          <div className="bg-amber/10 border border-amber/30 p-3 mb-4">
             <p className="text-amber text-sm font-mono">BRIDGE STILL IN PROGRESS</p>
             <p className="text-[#EDE3D0] text-xs mt-1">
               {pendingBridge.reason === "stopped"
@@ -1879,7 +2068,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <p className="text-[#9C917E] text-xs mt-2 font-mono break-all">
               Transfer ID: {pendingBridge.transferId}
             </p>
-            <p className="text-[#6B5F4F] text-[10px] mt-1">
+            <p className="text-[#8C806D] text-[10px] mt-1">
               Do not bridge again for this amount. Check your Gateway balance
               in a few minutes, then run the split.
             </p>
@@ -1893,13 +2082,14 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           </div>
         )}
 
+        <p className="step-label mt-2 mb-2">05 · IMPORT / PASTE</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
-              <FileSpreadsheet size={14} className="inline-block" /> Import CSV?
+            <label className="field-label flex items-center gap-1 mb-1">
+              <FileSpreadsheet size={14} /> Import CSV?
             </label>
             <div
-              className={`border-2 border-dashed rounded p-3 text-center transition ${
+              className={`border-2 border-dashed p-3 text-center transition ${
                 isDragOver ? "border-amber bg-amber/10" : "border-[rgba(242,177,52,0.16)]"
               }`}
               onDragOver={handleDragOver}
@@ -1920,8 +2110,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <p className="helper-text text-xs mt-1">CSV must have columns: <span className="font-mono">address,amount</span></p>
           </div>
           <div>
-            <label className="field-label block mb-1 text-amber text-xs uppercase tracking-wider flex items-center gap-1">
-              <Clipboard size={14} className="inline-block" /> Paste addresses?
+            <label className="field-label flex items-center gap-1 mb-1">
+              <Clipboard size={14} /> Paste addresses?
             </label>
             <textarea
               rows={2}
@@ -1946,9 +2136,10 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           </div>
         </div>
 
+        <p className="step-label mt-2 mb-2">06 · SAVED LISTS</p>
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <label className="field-label text-amber text-xs uppercase tracking-wider flex items-center gap-1">
-            <Folder size={14} className="inline-block" /> Load a saved list?
+          <label className="field-label flex items-center gap-1">
+            <Folder size={14} /> Load a saved list?
           </label>
           <select
             ref={savedListSelectRef}
@@ -1967,7 +2158,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               onClick={() => {
                 const select = savedListSelectRef.current;
                 if (select && select.value) {
-                  if (confirm("Delete this list?")) deleteList(select.value);
+                  showConfirm("Delete this list?", () => deleteList(select.value));
                 }
               }}
               className="btn-danger text-xs py-1 px-3 inline-flex items-center gap-1.5"
@@ -1988,16 +2179,18 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             type="button"
             onClick={saveCurrentList}
             disabled={isSavingList || validRecipientsCount === 0}
-            className={`btn-primary text-sm ${(isSavingList || validRecipientsCount === 0) ? "opacity-40 cursor-not-allowed" : ""}`}
+            className={`btn-secondary text-sm ${(isSavingList || validRecipientsCount === 0) ? "opacity-40 cursor-not-allowed" : ""}`}
           >
-            {isSavingList ? "Saving…" : "Save"}
+            <Save size={13} />
+            {isSavingList ? "Saving…" : "Save List"}
           </button>
         </div>
 
         <div>
+          <p className="step-label mb-1">04 · RECIPIENTS</p>
           <div className="flex justify-between items-center mb-2">
-            <span className="section-heading text-sm text-amber flex items-center gap-1">
-              <Users size={14} className="inline-block" /> Who gets paid? ({validRecipientsCount})
+            <span className="field-label text-[#F2B134] text-sm flex items-center gap-1">
+              <Users size={14} /> Who gets paid? ({validRecipientsCount})
             </span>
             <div className="flex gap-2">
               <button
@@ -2011,27 +2204,28 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               <button
                 type="button"
                 onClick={() => { append({ address: "", amount: "" }); play("click"); }}
-                className="text-xs bg-amber hover:bg-[#D99A2A] text-[#15100B] font-bold px-3 py-1 rounded transition inline-flex items-center gap-1.5"
+                className="btn-gold text-xs"
               >
                 <Plus size={14} />
                 Add
               </button>
             </div>
           </div>
-          <div className="space-y-1 max-h-48 overflow-y-auto border border-[rgba(242,177,52,0.16)] rounded p-1 bg-[#241B14]">
+          <div className="space-y-1 max-h-48 overflow-y-auto border border-[rgba(242,177,52,0.16)] p-1 bg-[#241B14]">
             {displayFields.length === 0 ? (
               <p className="helper-text text-center py-4 text-xs">Add your first recipient, or import a CSV.</p>
             ) : (
               displayFields.map((field, index) => {
                 const realIndex = fields.indexOf(field);
                 return (
-                  <div key={field.id} className="flex gap-2 items-center text-xs py-1 border-b border-[rgba(242,177,52,0.16)]/50 last:border-0">
+                  <div key={field.id} className="flex flex-col border-b border-[rgba(242,177,52,0.16)]/50 last:border-0 py-1">
+                    <div className="flex gap-2 items-center text-xs">
                     <input
                       placeholder="0x..."
                       {...register(`recipients.${realIndex}.address`, {
                         validate: (value) => !value || isAddress(value) || "Invalid address",
                       })}
-                      className="flex-1 bg-transparent border-0 border-b border-dashed border-[rgba(242,177,52,0.16)] focus:border-amber focus:outline-none text-[#EDE3D0] font-mono px-1 py-0.5"
+                      className={`flex-1 bg-transparent border-0 border-b border-dashed focus:border-amber focus:outline-none font-mono px-1 py-0.5 ${errors.recipients?.[realIndex]?.address ? "border-[#C4553D] text-[#C4553D]" : "border-[rgba(242,177,52,0.16)] text-[#EDE3D0]"}`}
                     />
                     <input
                       placeholder="Amount"
@@ -2040,7 +2234,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                           !value || (!isNaN(parseFloat(value)) && parseFloat(value) > 0) || "Invalid",
                       })}
                       disabled={isEqualMode}
-                      className={`w-24 bg-transparent border-0 border-b border-dashed border-[rgba(242,177,52,0.16)] focus:border-amber focus:outline-none text-[#EDE3D0] font-mono px-1 py-0.5 text-right ${isEqualMode ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-24 bg-transparent border-0 border-b border-dashed focus:border-amber focus:outline-none font-mono px-1 py-0.5 text-right ${isEqualMode ? "opacity-50 cursor-not-allowed" : ""} ${errors.recipients?.[realIndex]?.amount ? "border-[#C4553D] text-[#C4553D]" : "border-[rgba(242,177,52,0.16)] text-[#EDE3D0]"}`}
                     />
                     <button
                       type="button"
@@ -2049,6 +2243,12 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                     >
                       <X size={12} />
                     </button>
+                    </div>
+                    {(errors.recipients?.[realIndex]?.address || errors.recipients?.[realIndex]?.amount) && (
+                      <p className="text-[10px] font-mono text-[#C4553D] mt-0.5 pl-1">
+                        {errors.recipients?.[realIndex]?.address?.message || errors.recipients?.[realIndex]?.amount?.message}
+                      </p>
+                    )}
                   </div>
                 );
               })
@@ -2065,11 +2265,12 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           )}
         </div>
 
-        <div className="border-t border-[rgba(242,177,52,0.16)] pt-3 mt-3">
+        {/* Sticky totals on mobile */}
+        <div className="sticky bottom-[44px] md:static border-t border-[rgba(242,177,52,0.16)] pt-3 mt-3 bg-[#1D1712] z-10">
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <span className="field-label block text-amber text-xs uppercase tracking-wider flex items-center gap-1">
-                <Receipt size={14} className="inline-block" /> Review the total
+              <span className="field-label flex items-center gap-1 text-[#F2B134]">
+                <Receipt size={14} /> Review the total
               </span>
               <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>
             </div>
@@ -2089,54 +2290,40 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         </div>
 
         {status !== "idle" && (
-         <div className="mt-3 p-3 border border-[rgba(242,177,52,0.16)] rounded bg-[#241B14]">
-           <div className="flex items-center gap-2">
-             <span className={`font-mono text-xs ${getStatusColor()} inline-flex items-center gap-1.5`}>
-               {status === "building" && (
-                 <>
-                   <LoaderCircle size={13} className="animate-spin" />
-                   BUILDING
-                 </>
-               )}
-               {status === "funding" && (
-                 <>
-                   <LoaderCircle size={13} className="animate-spin" />
-                   FUNDING
-                 </>
-               )}
-               {status === "confirming" && (
-                 <>
-                   <LoaderCircle size={13} className="animate-spin" />
-                   CONFIRMING
-                 </>
-               )}
-               {status === "broadcasting" && (
-                 <>
-                   <LoaderCircle size={13} className="animate-spin" />
-                   BROADCASTING
-                 </>
-               )}
-               {status === "confirmed" && (
-                 <>
-                   <CheckCircle size={13} />
-                   CONFIRMED
-                 </>
-               )}
-               {status === "partial" && (
-                 <>
-                   <AlertTriangle size={13} />
-                   PARTIALLY SENT
-                 </>
-               )}
-               {status === "failed" && (
-                 <>
-                   <XCircle size={13} />
-                   FAILED
-                 </>
-               )}
-             </span>
+         <div className="mt-3 p-3 border border-[rgba(242,177,52,0.16)] bg-[#241B14]">
 
-             <span className="text-[#EDE3D0] text-xs">
+           {/* ── 4-step progress bar ───────────────────────────────────────── */}
+           <div className="grid grid-cols-4 mb-3">
+             {PROGRESS_STEPS.map((step, i) => {
+               const isActive = i === progressIndex;
+               const isPast  = progressDone || (progressIndex > i && progressIndex >= 0);
+               const isFail  = progressFailed && i === progressIndex;
+               return (
+                 <div key={step} className={["relative text-center py-2 px-1 border-b-2 transition-colors",
+                   isFail        ? "border-[#C4553D]"
+                   : isPast || progressDone ? "border-[#4ADE80]"
+                   : isActive    ? "border-[#F2B134]"
+                   :               "border-[rgba(242,177,52,0.12)]",
+                 ].join(" ")}>
+                   <span className={["font-mono text-[9px] uppercase tracking-[0.12em]",
+                     isFail ? "text-[#C4553D]" : isPast || progressDone ? "text-[#4ADE80]" : isActive ? "text-[#F2B134]" : "text-[#8C806D]",
+                   ].join(" ")}>
+                     {isActive && !progressDone && !progressFailed
+                       ? <LoaderCircle size={9} className="animate-spin inline-block mr-0.5" />
+                       : null}
+                     {step}
+                   </span>
+                 </div>
+               );
+             })}
+           </div>
+
+           {/* ── Terminal message ──────────────────────────────────────────── */}
+           <div className="flex items-center gap-2 mb-1">
+             {progressDone && <CheckCircle size={13} className="text-[#4ADE80] shrink-0" />}
+             {status === "partial" && <AlertTriangle size={13} className="text-[#C4553D] shrink-0" />}
+             {progressFailed && <XCircle size={13} className="text-[#C4553D] shrink-0" />}
+             <span className={`font-mono text-xs ${getStatusColor()}`}>
                {statusMessage || networkStatus || "Processing..."}
              </span>
            </div>
@@ -2250,7 +2437,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           </button>
         </div>
         {arcSwitch.isMismatched && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2 bg-[#C4553D]/10 border border-[#C4553D]/30 p-2">
             <span className="text-[#C4553D] text-sm flex-1 min-w-[100px]">Switch to Arc to split</span>
             <button
               onClick={arcSwitch.switchChain}
@@ -2265,81 +2452,22 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       </div>
 
       {showReview && pendingData && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-            <h3 className="text-xl font-bold font-sans text-amber mb-4">Review Split</h3>
-            <div className="space-y-4">
-              <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-4">
-                <div className="flex justify-between text-sm">
-                  <span className="field-label">Token</span>
-                  <span className="data-value font-bold text-amber">{tokenSymbol}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="field-label">Recipients</span>
-                  <span className="data-value font-bold">{validRecipientsCount}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="field-label">Total</span>
-                  <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="field-label">Funding</span>
-                  <span className="data-value">
-                    {fundingSource === "unified" ? "GATEWAY BALANCE" :
-                     fundingSource === "hybrid" ? "NATIVE/GATEWAY" :
-                     fundingSource.toUpperCase()}
-                  </span>
-                </div>
-                {fundingSource !== "native" && (
-                  <div className="flex justify-between text-sm mt-2">
-                    <span className="field-label">Native</span>
-                    <span className="data-value">{nativeContribution.toFixed(activeDecimals)} {tokenSymbol}</span>
-                  </div>
-                )}
-                {fundingSource !== "native" && (
-                  <div className="flex justify-between text-sm mt-2">
-                    <span className="field-label">Gateway Balance</span>
-                    <span className="data-value">{unifiedContribution.toFixed(activeDecimals)} {tokenSymbol}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="field-label">Execution</span>
-                  <span className="data-value">{isCustomToken ? "SplittyBatcher" : "Multicall3From"}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="field-label">Network</span>
-                  <span className="data-value">Arc</span>
-                </div>
-              </div>
-              <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-4 max-h-60 overflow-y-auto">
-                <p className="field-label mb-2">Recipients</p>
-                {pendingData.recipients.filter(r => r.address.trim() && r.amount.trim()).map((r, i) => (
-                  <div key={i} className="receipt-row text-sm py-1.5 border-b border-[rgba(242,177,52,0.16)]/50 last:border-0">
-                    <span className="receipt-address">{r.address.slice(0, 8)}…{r.address.slice(-6)}</span>
-                    <span className="receipt-amount">{r.amount} {tokenSymbol}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button onClick={() => { setShowReview(false); play("click"); }} className="flex-1 btn-secondary">
-                  Cancel
-                </button>
-                <button
-                  onClick={executeSplit}
-                  disabled={isReviewConfirmDisabled}
-                  className={`flex-1 btn-primary inline-flex items-center justify-center gap-1.5 ${isReviewConfirmDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  {arcSwitch.isMismatched ? "Switch to Arc" : isLoading ? "Processing…" : (
-                    <>
-                      <CheckCircle size={14} className="inline-block mr-1.5" />
-                      Confirm & Send
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ReviewModal
+          pendingData={pendingData}
+          tokenSymbol={tokenSymbol}
+          activeDecimals={activeDecimals}
+          validRecipientsCount={validRecipientsCount}
+          getTotalToSend={getTotalToSend}
+          fundingSource={fundingSource}
+          nativeContribution={nativeContribution}
+          unifiedContribution={unifiedContribution}
+          isCustomToken={isCustomToken}
+          arcSwitch={arcSwitch}
+          isLoading={isLoading}
+          isReviewConfirmDisabled={isReviewConfirmDisabled}
+          onCancel={() => { setShowReview(false); play("click"); }}
+          onConfirm={executeSplit}
+        />
       )}
     </div>
   );

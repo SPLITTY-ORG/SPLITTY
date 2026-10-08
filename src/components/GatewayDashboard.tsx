@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
-import { useAccount, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSignTypedData } from "wagmi";
-import { formatUnits, erc20Abi, parseUnits, createPublicClient, http, type Hash } from "viem";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useAccount, useSwitchChain, useWriteContract, useReadContract, useSignTypedData } from "wagmi";
+import { formatUnits, erc20Abi, parseUnits, createPublicClient, http } from "viem";
 import toast from "react-hot-toast";
 import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
 import { useGatewayBalance, useWalletBalance, useInvalidateBalances } from "../hooks/useBalances";
@@ -38,8 +38,19 @@ const GATEWAY_WALLET_ABI = [
   },
 ] as const;
 
+const TIP_KEY = "splitty-gateway-tip-dismissed";
+
 export function GatewayDashboard() {
   const { address, chainId, connector } = useAccount();
+  const [tipDismissed, setTipDismissed] = useState(() => {
+    try { return !!localStorage.getItem(TIP_KEY); } catch { return false; }
+  });
+  const [bridgeOpen, setBridgeOpen] = useState(false);
+
+  const dismissTip = useCallback(() => {
+    setTipDismissed(true);
+    try { localStorage.setItem(TIP_KEY, "1"); } catch {}
+  }, []);
 
   const { switchChainAsync } = useSwitchChain();
   const { play } = useSound();
@@ -477,28 +488,43 @@ export function GatewayDashboard() {
 
   return (
     <div className="panel w-full min-w-0 overflow-hidden">
-      {/* Gateway description section */}
-      <div className="mb-5 sm:mb-6 p-3 sm:p-4 bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded overflow-hidden">
-        <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
-          <Lightbulb size={18} className="text-[#F2B134] shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-semibold text-[#EDE3D0]">What is the Gateway?</h3>
-            <p className="text-xs text-[#9C917E] mt-1 leading-relaxed">
-              The Gateway is like a <span className="text-[#F2B134]">unified wallet</span> that holds your USDC
-              across multiple blockchains. You can <span className="text-[#F2B134]">deposit</span> USDC from other chains
-              (like Base or {IS_MAINNET ? "Ethereum" : "Ethereum Sepolia"}) into your Gateway balance, then <span className="text-[#F2B134]">bridge</span> it to Arc
-              instantly — all without paying high gas fees per transfer.
-            </p>
-            <p className="text-xs text-[#6B5F4F] mt-1">
-              <span className="text-[#9C917E]">Tip:</span> Your Gateway balance appears in the <span className="text-[#EDE3D0]">Unified Balance</span> on the Split tab.
-            </p>
+
+      {/* ── Three-step header ───────────────────────────────────────────────── */}
+      <div className="mb-6 grid grid-cols-3 border border-[rgba(242,177,52,0.14)]">
+        {[
+          { n: "01", label: "DEPOSIT", sub: "Send USDC from any chain" },
+          { n: "02", label: "BALANCE APPEARS", sub: "Gateway holds it cross-chain" },
+          { n: "03", label: "SPLIT USES IT",  sub: "Funds a split automatically" },
+        ].map((step, i) => (
+          <div key={step.n} className={["p-3 sm:p-4", i > 0 ? "border-l border-[rgba(242,177,52,0.14)]" : ""].join(" ")}>
+            <span className="step-label block mb-1">{step.n}</span>
+            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-[#EDE3D0] block">{step.label}</span>
+            <span className="font-mono text-[10px] text-[#8C806D] hidden sm:block mt-0.5">{step.sub}</span>
           </div>
-        </div>
+        ))}
       </div>
 
+      {/* ── Dismissible tip ─────────────────────────────────────────────────── */}
+      {!tipDismissed && (
+        <div className="mb-5 p-3 sm:p-4 bg-[#241B14] border border-[rgba(242,177,52,0.16)] overflow-hidden">
+          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+            <Lightbulb size={18} className="text-[#F2B134] shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-[#EDE3D0]">What is the Gateway?</h3>
+              <p className="text-xs text-[#8C806D] mt-1 leading-relaxed">
+                The Gateway is a <span className="text-[#F2B134]">unified balance</span> that holds USDC across chains.
+                Deposit from {IS_MAINNET ? "Base, Ethereum, or Polygon" : "Base Sepolia or Ethereum Sepolia"}, then the Split tab bridges automatically.
+              </p>
+            </div>
+            <button onClick={dismissTip} className="text-[#8C806D] hover:text-[#EDE3D0] transition shrink-0 mt-0.5" title="Dismiss">
+              <span className="text-xs font-mono">✕</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="terminal-label">Gateway</span>
-        <span className="text-xs text-[#9C917E] ml-2">// passive</span>
+        <span className="terminal-label">Gateway Balances</span>
       </div>
 
       <div className="mb-5 sm:mb-6 min-w-0">
@@ -534,18 +560,18 @@ export function GatewayDashboard() {
         </div>
       </div>
 
-      <div className="mb-5 sm:mb-6 bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-3 sm:p-4 min-w-0 overflow-visible">
+      <div className="mb-5 sm:mb-6 bg-[#241B14] border border-[rgba(242,177,52,0.16)] p-3 sm:p-4 min-w-0 overflow-visible">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
           <div>
             <h4 className="field-label text-sm">Gateway Deposit</h4>
-            <p className="text-xs text-[#6B5F4F] mt-1">
+            <p className="text-xs text-[#8C806D] mt-1">
               Choose how you want to fund your Unified Balance.
             </p>
           </div>
         </div>
 
         <div className="relative mb-4 min-w-0" ref={depositRouteRef}>
-          <div className="text-[10px] uppercase tracking-wider text-[#6B5F4F] mb-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-[#8C806D] mb-1.5">
             Deposit route
           </div>
           <button
@@ -553,7 +579,7 @@ export function GatewayDashboard() {
             onClick={() => { setDepositRouteOpen((open) => !open); play("click"); }}
             aria-haspopup="listbox"
             aria-expanded={depositRouteOpen}
-            className={`w-full min-w-0 flex items-center justify-between gap-2 sm:gap-3 bg-[#1D1712] border rounded px-3 py-3 text-sm transition ${depositRouteOpen ? "border-[rgba(242,177,52,0.42)]" : "border-[rgba(242,177,52,0.18)] hover:border-[rgba(242,177,52,0.35)]"}`}
+            className={`w-full min-w-0 flex items-center justify-between gap-2 sm:gap-3 bg-[#1D1712] border px-3 py-3 text-sm transition ${depositRouteOpen ? "border-[rgba(242,177,52,0.42)]" : "border-[rgba(242,177,52,0.18)] hover:border-[rgba(242,177,52,0.35)]"}`}
           >
             <span className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-hidden">
               {depositMode === "fast" ? (
@@ -586,7 +612,7 @@ export function GatewayDashboard() {
           </button>
 
           {depositRouteOpen && (
-            <div role="listbox" className="absolute z-30 left-0 right-0 mt-1 bg-[#1D1712] border border-[rgba(242,177,52,0.22)] rounded overflow-hidden shadow-xl max-h-[60vh] overflow-y-auto">
+            <div role="listbox" className="absolute z-30 left-0 right-0 mt-1 bg-[#1D1712] border border-[rgba(242,177,52,0.22)] overflow-hidden shadow-xl max-h-[60vh] overflow-y-auto">
               {CHAIN_KEYS.map((key) => (
                 <button
                   key={key}
@@ -607,13 +633,13 @@ export function GatewayDashboard() {
                   }`}
                 >
                   <span className="flex items-center gap-1.5"><ChainIcon iconKey={chainConfig[key].iconKey} size="md" />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
-                  <span className="text-xs text-[#6B5F4F]">standard</span>
+                  <span className="text-xs text-[#8C806D]">standard</span>
                 </button>
               ))}
 
               <div className="border-t border-[rgba(242,177,52,0.10)]" />
 
-              <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-[#6B5F4F]">
+              <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-[#8C806D]">
                 Fast Deposit
               </div>
 
@@ -650,7 +676,7 @@ export function GatewayDashboard() {
         {depositMode === "fast" ? (
           <>
             {fastDepositSwitch.isMismatched && (
-              <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+              <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
                 <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">
                   Switch to {fastSourceConfig.label} to continue.
                 </span>
@@ -693,7 +719,7 @@ export function GatewayDashboard() {
                       setFastDepositEstimate(null);
                       play("step");
                     }}
-                    className="text-xs shrink-0 px-3 h-10 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
+                    className="text-xs shrink-0 px-3 h-10 border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
                   >
                     MAX
                   </button>
@@ -709,7 +735,7 @@ export function GatewayDashboard() {
                       setFastDepositEstimate(null);
                       play("step");
                     }}
-                    className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                    className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#8C806D] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
                   >
                     {preset}
                   </button>
@@ -718,7 +744,7 @@ export function GatewayDashboard() {
 
               {fastDepositEstimate && (
                 <>
-                  <div className="mt-1 p-3 bg-[#1D1712] border border-[rgba(242,177,52,0.12)] rounded min-w-0 overflow-hidden">
+                  <div className="mt-1 p-3 bg-[#1D1712] border border-[rgba(242,177,52,0.12)] min-w-0 overflow-hidden">
                     <div className="text-xs text-[#9C917E] mb-2">
                       Estimated fees
                     </div>
@@ -762,7 +788,7 @@ export function GatewayDashboard() {
                     type="button"
                     onClick={() => { setFastDepositEstimate(null); play("click"); }}
                     disabled={isFastDepositing}
-                    className="w-full text-xs text-[#6B5F4F] hover:text-[#EDE3D0] transition py-1"
+                    className="w-full text-xs text-[#8C806D] hover:text-[#EDE3D0] transition py-1"
                   >
                     Edit amount
                   </button>
@@ -803,7 +829,7 @@ export function GatewayDashboard() {
 
 
 
-              <div className="mt-2 text-xs text-[#6B5F4F] space-y-1 break-words leading-relaxed">
+              <div className="mt-2 text-xs text-[#8C806D] space-y-1 break-words leading-relaxed">
                 <div>
                   Balance:{" "}
                   <span className="data-value">
@@ -834,7 +860,7 @@ export function GatewayDashboard() {
           <div className="">
             <h4 className="field-label text-sm mb-3 leading-relaxed">Deposit USDC to Gateway</h4>
             {depositSwitch.isMismatched && (
-              <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+              <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
                 <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">Switch to {depositSwitch.targetChain.label} to continue.</span>
                 <button
                   onClick={() => { play("confirm"); depositSwitch.switchChain(); }}
@@ -857,14 +883,14 @@ export function GatewayDashboard() {
                   onChange={(e) => setDepositAmount(e.target.value)}
                   className="w-full min-w-0 flex-1 input text-sm h-10"
                 />
-                {depositBalanceRaw && (
+                {depositBalanceRaw !== undefined && (
                   <button
                     type="button"
                     onClick={() => {
                       setDepositAmount(parseFloat(formatUnits(depositBalanceRaw, USDC_DECIMALS)).toFixed(6));
                       play("step");
                     }}
-                    className="text-xs shrink-0 px-3 h-10 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
+                    className="text-xs shrink-0 px-3 h-10 border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
                   >
                     MAX
                   </button>
@@ -875,7 +901,7 @@ export function GatewayDashboard() {
                   <button
                     key={preset}
                     onClick={() => { setDepositAmount(preset); play("step"); }}
-                    className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                    className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#8C806D] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
                   >
                     {preset}
                   </button>
@@ -907,13 +933,25 @@ export function GatewayDashboard() {
         )}
       </div>
 
-      <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded p-3 sm:p-4 min-w-0 overflow-hidden">
+      {/* ── Advanced: Manual Bridge ─────────────────────────────────────────── */}
+      <div className="mt-2">
+        <button
+          onClick={() => setBridgeOpen((o) => !o)}
+          className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.14em] text-[#8C806D] hover:text-[#EDE3D0] transition mb-3"
+        >
+          <ChevronDown size={13} className={bridgeOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+          Advanced — Manual Bridge to Arc
+        </button>
+      </div>
+
+      {bridgeOpen && (
+      <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] p-3 sm:p-4 min-w-0 overflow-hidden">
         <h4 className="field-label text-sm mb-3 leading-relaxed break-words">INSTANT USDC BRIDGE TO ARC VIA GATEWAY BALANCE</h4>
         <p className="text-xs text-[#9C917E] mb-3 leading-relaxed">
           Move USDC from your Gateway balance to Arc — instant and gas‑efficient.
         </p>
         {bridgeSwitch.isMismatched && (
-          <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 rounded p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+          <div className="bg-[#C4553D]/10 border border-[#C4553D]/30 p-2.5 mb-3 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
             <span className="text-[#C4553D] text-sm flex-1 min-w-0 leading-relaxed">Switch to {bridgeSwitch.targetChain.label} to continue.</span>
             <button
               onClick={() => { play("confirm"); bridgeSwitch.switchChain(); }}
@@ -952,7 +990,7 @@ export function GatewayDashboard() {
               <button
                 type="button"
                 onClick={() => { setBridgeAmount(sourceBalanceNum.toFixed(6)); play("step"); }}
-                className="text-xs shrink-0 px-3 h-10 rounded border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
+                className="text-xs shrink-0 px-3 h-10 border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
               >
                 MAX
               </button>
@@ -960,7 +998,7 @@ export function GatewayDashboard() {
             <span className="text-[#9C917E] text-sm shrink-0">USDC</span>
           </div>
           {sourceBalanceNum === 0 && (
-            <div className="text-xs text-[#C4553D] bg-[#C4553D]/10 border border-[#C4553D]/20 rounded px-3 py-2">
+            <div className="text-xs text-[#C4553D] bg-[#C4553D]/10 border border-[#C4553D]/20 px-3 py-2">
               No Gateway balance on {bridgeSourceConfig.label}. Deposit first before bridging.
             </div>
           )}
@@ -969,7 +1007,7 @@ export function GatewayDashboard() {
               <button
                 key={preset}
                 onClick={() => { setBridgeAmount(preset); play("step"); }}
-                className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#9C917E] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 rounded border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
+                className="text-xs bg-[#1D1712] hover:bg-[#2F241A] text-[#8C806D] hover:text-[#EDE3D0] px-2.5 py-2 sm:px-3 sm:py-1 border border-[rgba(242,177,52,0.16)] transition text-center min-w-0"
               >
                 {preset}
               </button>
@@ -995,6 +1033,7 @@ export function GatewayDashboard() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

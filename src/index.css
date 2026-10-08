@@ -14,8 +14,8 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: -0.03em;
   }
 
   ::-webkit-scrollbar {
@@ -25,8 +25,8 @@
     background: #1D1712;
   }
   ::-webkit-scrollbar-thumb {
-    background: #8A6A2C;
-    border-radius: 4px;
+    background: #B8923F;
+    border-radius: 0;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #F2B134;
@@ -44,21 +44,21 @@
 }
 
 @layer components {
-  /* Typography */
+  /* ── Typography ────────────────────────────────────────────── */
   .terminal-label {
-    @apply text-[#8A6A2C] text-[11px] uppercase tracking-[0.08em] font-mono;
+    @apply text-[#B8923F] text-[11px] uppercase tracking-[0.16em] font-mono;
   }
   .terminal-label::before {
     content: "// ";
-    @apply text-[#8A6A2C]/50;
+    @apply text-[#B8923F]/50;
   }
 
   .section-heading {
-    @apply font-sans font-semibold text-base text-[#EDE3D0];
+    @apply font-sans font-bold text-base text-[#EDE3D0] uppercase tracking-tight;
   }
 
   .field-label {
-    @apply font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A6A2C];
+    @apply font-mono text-[11px] uppercase tracking-[0.16em] text-[#B8923F];
   }
 
   .data-value {
@@ -66,88 +66,148 @@
   }
 
   .helper-text {
-    @apply font-mono text-xs text-[#9C917E];
+    @apply font-mono text-xs text-[#8C806D];
   }
 
-  /* Buttons */
+  /* Mono eyebrow with step number e.g. "01 · RECIPIENTS" */
+  .step-label {
+    @apply font-mono text-[10px] uppercase tracking-[0.20em] text-[#B8923F];
+  }
+  .step-label-active {
+    @apply font-mono text-[10px] uppercase tracking-[0.20em] text-[#F2B134];
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────── */
+  /* Notched clip-path shared value */
+  /* Primary / gold — notched top-right, no glow */
   .btn-primary {
-    @apply bg-[#F2B134] hover:bg-[#D99A2A] text-[#15100B] font-bold py-2.5 px-6 rounded transition-all duration-150 ease-out 
-           active:scale-[0.97] shadow-[0_0_20px_rgba(242,177,52,0.2)] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+    --notch: 12px;
+    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+    @apply inline-flex items-center justify-center gap-2
+           bg-[#F2B134] text-[#15100B] font-mono font-bold text-[11px] uppercase tracking-[0.14em]
+           py-3 px-6
+           transition-transform duration-150 ease-out
+           hover:-translate-y-px active:translate-y-0
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0;
   }
-  .btn-secondary {
-    @apply bg-[#241B14] hover:bg-[#2F241A] text-[#EDE3D0] font-bold py-2.5 px-6 rounded transition-all duration-150 ease-out 
-           active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
-  }
-  .btn-danger {
-    @apply bg-[#C4553D] hover:bg-[#A84630] text-[#EDE3D0] font-bold py-2 px-4 rounded transition-all duration-150 ease-out 
-           active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
-  }
-  .btn-gold {
-    @apply bg-[#F2B134] hover:bg-[#D99A2A] text-[#15100B] font-bold py-2 px-4 rounded transition-all duration-150 ease-out 
-           active:scale-[0.97];
+  .btn-primary:focus-visible {
+    outline: 2px solid #15100B;
+    outline-offset: -4px;
   }
 
-  /* Cards */
+  .btn-gold {
+    --notch: 10px;
+    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+    @apply inline-flex items-center justify-center gap-2
+           bg-[#F2B134] text-[#15100B] font-mono font-bold text-[11px] uppercase tracking-[0.14em]
+           py-2 px-4
+           transition-transform duration-150 ease-out
+           hover:-translate-y-px active:translate-y-0
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-gold:focus-visible {
+    outline: 2px solid #15100B;
+    outline-offset: -4px;
+  }
+
+  /* Secondary — outlined, transparent */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-[#EDE3D0] font-mono font-bold text-[11px] uppercase tracking-[0.14em]
+           border border-[rgba(242,177,52,0.30)]
+           py-2.5 px-5
+           transition-colors duration-150 ease-out
+           hover:border-[rgba(242,177,52,0.60)] hover:text-[#F2B134]
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Danger */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-[#C4553D] hover:bg-[#A84630] text-[#EDE3D0] font-mono font-bold text-[11px] uppercase tracking-[0.14em]
+           py-2 px-4
+           transition-colors duration-150 ease-out
+           active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* ── Panels ─────────────────────────────────────────────────── */
   .panel {
-    @apply bg-[#1D1712] border border-[rgba(242,177,52,0.16)] rounded-[5px] p-4 sm:p-6;
+    @apply bg-[#1D1712] border border-[rgba(242,177,52,0.16)] p-4 sm:p-6;
   }
   .panel-raised {
-    @apply bg-[#241B14] border border-[rgba(242,177,52,0.16)] rounded-[5px] p-3 sm:p-4;
+    @apply bg-[#241B14] border border-[rgba(242,177,52,0.18)] p-3 sm:p-4;
   }
 
-  /* Inputs & Selects */
+  /* ── Inputs & Selects ───────────────────────────────────────── */
   .input {
-    @apply w-full bg-[#241B14] text-[#EDE3D0] border border-[rgba(242,177,52,0.16)] rounded-[5px] px-4 py-2.5 
-           placeholder:text-[#9C917E]/60 focus:outline-none focus:ring-2 focus:ring-[#F2B134]/50 transition;
+    @apply w-full bg-[#241B14] text-[#EDE3D0]
+           border border-[rgba(242,177,52,0.18)]
+           px-4 py-2.5
+           font-mono text-sm
+           placeholder:text-[#8C806D]
+           focus:outline-none focus:border-[rgba(242,177,52,0.60)] focus:ring-1 focus:ring-[#F2B134]/30
+           transition-colors;
   }
   .select {
-    @apply w-full bg-[#241B14] text-[#EDE3D0] border border-[rgba(242,177,52,0.16)] rounded-[5px] px-4 py-2.5 
-           focus:outline-none focus:ring-2 focus:ring-[#F2B134]/50 transition;
+    @apply w-full bg-[#241B14] text-[#EDE3D0]
+           border border-[rgba(242,177,52,0.18)]
+           px-4 py-2.5
+           font-mono text-sm
+           focus:outline-none focus:border-[rgba(242,177,52,0.60)] focus:ring-1 focus:ring-[#F2B134]/30
+           transition-colors;
   }
 
-  /* Receipt rows */
+  /* ── Receipt rows ───────────────────────────────────────────── */
   .receipt-row {
-    @apply flex justify-between items-center border-b border-[rgba(242,177,52,0.16)]/50 py-2;
+    @apply flex justify-between items-center border-b border-[rgba(242,177,52,0.12)] py-2;
   }
   .receipt-row:last-child {
     border-bottom: none;
   }
   .receipt-address {
-    @apply font-mono text-sm text-[#9C917E];
+    @apply font-mono text-sm text-[#8C806D];
   }
   .receipt-amount {
     @apply font-mono text-sm font-bold text-[#F2B134];
   }
 
-  /* Network pills */
+  /* ── Network pills ──────────────────────────────────────────── */
   .network-pill {
-    @apply inline-flex items-center gap-2 px-2 py-1 rounded-full text-sm font-mono transition whitespace-nowrap;
+    @apply inline-flex items-center gap-2 px-2.5 py-1
+           font-mono text-[10px] uppercase tracking-[0.14em]
+           border transition-colors whitespace-nowrap;
   }
   .network-pill-active {
-    @apply text-[#F2B134] bg-[#F2B134]/10 ring-1 ring-[#F2B134]/30;
+    @apply text-[#F2B134] bg-[rgba(242,177,52,0.08)] border-[rgba(242,177,52,0.30)];
   }
   .network-pill-inactive {
-    @apply text-[#9C917E] hover:text-[#EDE3D0] cursor-pointer;
+    @apply text-[#8C806D] border-transparent hover:text-[#EDE3D0] cursor-pointer;
   }
   .network-dot {
-    @apply inline-block w-2 h-2 rounded-full;
+    @apply inline-block w-2 h-2;
   }
   .network-dot-active {
-    @apply bg-[#F2B134] shadow-[0_0_8px_rgba(242,177,52,0.4)];
+    @apply bg-[#F2B134];
   }
   .network-dot-inactive {
-    @apply bg-[#9C917E]/30;
+    @apply bg-[#8C806D]/30;
   }
 
-  /* Blinking cursor */
+  /* ── Blink cursor ───────────────────────────────────────────── */
   .blink-cursor::after {
     content: "_";
-    @apply text-[#F2B134] animate-pulse;
+    @apply text-[#F2B134];
+    animation: blink 1s step-end infinite;
   }
 
-  /* Layout */
+  /* ── Layout ─────────────────────────────────────────────────── */
   .app-grid {
     @apply grid grid-cols-1 md:grid-cols-[1fr_340px] lg:grid-cols-[1fr_380px] gap-6;
+  }
+
+  /* ── Hairline dividers ──────────────────────────────────────── */
+  .hairline {
+    @apply border-[rgba(242,177,52,0.16)];
   }
 }
 
@@ -160,7 +220,27 @@
   }
 }
 
+/* ── Keyframes ──────────────────────────────────────────────────── */
 @keyframes splitty-rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .blink-cursor::after {
+    animation: none;
+    opacity: 1;
+  }
+  .animate-ping {
+    animation: none !important;
+  }
+  .animate-pulse {
+    animation: none !important;
+  }
 }
