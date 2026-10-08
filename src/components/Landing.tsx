@@ -1,8 +1,6 @@
 import {
   ArrowRight,
   BookOpen,
-  GitBranch,
-  X as XIcon,
   Split,
   Waypoints,
   Wallet,
@@ -12,10 +10,22 @@ import {
   PlugZap,
   Users,
   SendHorizonal,
-  CheckCircle,
 } from "lucide-react";
 import SplittyLogo from "./SplittyLogo";
 import { IS_MAINNET } from "../config/gateway.active";
+
+const GithubIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+  </svg>
+);
+
+const XLogoIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
+
 
 // ── Notched CTA button (Agon TagButton pattern) ───────────────────────────────
 // clip-path: top-right corner is cut at 14px; hover lifts 1px; no rounded corners.
@@ -141,7 +151,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
   const networkHref = IS_MAINNET
     ? "https://splitty-testnet.vercel.app"
     : "https://splitty.live";
-  const networkLabel = IS_MAINNET ? "TESTNET" : "MAINNET";
+  const networkLabel = IS_MAINNET ? "TRY TESTNET" : "TRY MAINNET";
 
   return (
     <div className="min-h-[100svh] bg-[#15100B] text-[#EDE3D0] flex flex-col">
@@ -150,9 +160,9 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
       <header className="shrink-0 border-b border-[rgba(242,177,52,0.16)]">
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-8">
           {/* Logo + wordmark */}
-          <div className="flex items-center gap-2.5">
-            <SplittyLogo size={26} />
-            <span className="font-mono text-sm font-bold tracking-[0.10em] text-[#F2B134] uppercase">
+          <div className="flex items-center gap-3">
+            <SplittyLogo size={34} />
+            <span className="font-mono text-base font-bold tracking-[0.10em] text-[#F2B134] uppercase">
               Splitty
             </span>
           </div>
@@ -174,7 +184,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
-              <GitBranch size={11} strokeWidth={1.8} />
+              <GithubIcon />
               GitHub
             </a>
             <a
@@ -183,16 +193,31 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
-              <XIcon size={11} strokeWidth={1.8} />
+              <XLogoIcon />
               X
             </a>
           </nav>
 
           {/* Right side: network badge + launch button */}
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#4ADE80]" />
-              {network}
+            <span className={[
+              "hidden lg:inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
+              IS_MAINNET
+                ? "border-[rgba(74,222,128,0.25)] bg-[rgba(74,222,128,0.08)] text-[#4ADE80]"
+                : "border-[rgba(242,177,52,0.25)] bg-[rgba(242,177,52,0.08)] text-[#F2B134]",
+            ].join(" ")}>
+              {/* pulsing dot */}
+              <span className="relative flex h-2 w-2">
+                <span className={[
+                  "absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
+                  IS_MAINNET ? "bg-[#4ADE80]" : "bg-[#F2B134]",
+                ].join(" ")} />
+                <span className={[
+                  "relative inline-flex h-2 w-2 rounded-full",
+                  IS_MAINNET ? "bg-[#4ADE80]" : "bg-[#F2B134]",
+                ].join(" ")} />
+              </span>
+              {IS_MAINNET ? "Live on Mainnet" : "Live on Testnet"}
             </span>
             <TagButton variant="ghost" onClick={onLogin} disabled={isLoggingIn}>
               {isLoggingIn ? "OPENING…" : <><ArrowRight size={13} />LAUNCH APP</>}
@@ -203,30 +228,52 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
         {/* Mobile sub-nav */}
         <nav
           aria-label="Public mobile"
-          className="flex justify-center gap-6 border-t border-[rgba(242,177,52,0.10)] py-2 lg:hidden"
+          className="flex flex-wrap items-center justify-center gap-4 border-t border-[rgba(242,177,52,0.10)] px-4 py-2 lg:hidden"
         >
+          {/* Live badge — mobile only */}
+          <span className={[
+            "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
+            IS_MAINNET
+              ? "border-[rgba(74,222,128,0.25)] bg-[rgba(74,222,128,0.08)] text-[#4ADE80]"
+              : "border-[rgba(242,177,52,0.25)] bg-[rgba(242,177,52,0.08)] text-[#F2B134]",
+          ].join(" ")}>
+            <span className="relative flex h-2 w-2">
+              <span className={[
+                "absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
+                IS_MAINNET ? "bg-[#4ADE80]" : "bg-[#F2B134]",
+              ].join(" ")} />
+              <span className={[
+                "relative inline-flex h-2 w-2 rounded-full",
+                IS_MAINNET ? "bg-[#4ADE80]" : "bg-[#F2B134]",
+              ].join(" ")} />
+            </span>
+            {IS_MAINNET ? "Live on Mainnet" : "Live on Testnet"}
+          </span>
           <a
             href="https://splittyonarc.gitbook.io/splitty-docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
           >
+            <BookOpen size={11} strokeWidth={1.8} />
             Docs
           </a>
           <a
             href="https://github.com/SPLITTY-ORG/SPLITTY"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
           >
+            <GithubIcon />
             GitHub
           </a>
           <a
             href="https://x.com/splittyonarc"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
           >
+            <XLogoIcon />
             X
           </a>
         </nav>
@@ -408,32 +455,36 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                 href="https://github.com/SPLITTY-ORG/SPLITTY"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-[#EDE3D0] transition-colors"
+                className="inline-flex items-center gap-1.5 hover:text-[#EDE3D0] transition-colors"
               >
+                <GithubIcon />
                 GitHub
               </a>
               <a
                 href="https://x.com/splittyonarc"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-[#EDE3D0] transition-colors"
+                className="inline-flex items-center gap-1.5 hover:text-[#EDE3D0] transition-colors"
               >
-                X / Twitter
+                <XLogoIcon />
+                X
               </a>
               <a
                 href="https://splittyonarc.gitbook.io/splitty-docs"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-[#EDE3D0] transition-colors"
+                className="inline-flex items-center gap-1.5 hover:text-[#EDE3D0] transition-colors"
               >
+                <BookOpen size={13} strokeWidth={1.8} />
                 Docs
               </a>
               <a
                 href={networkHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-[#EDE3D0] transition-colors"
+                className="inline-flex items-center gap-1.5 hover:text-[#EDE3D0] transition-colors"
               >
+                <ArrowRight size={13} strokeWidth={1.8} />
                 {networkLabel}
               </a>
             </div>
