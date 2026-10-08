@@ -73,7 +73,7 @@ function TagButton({ onClick, disabled, children, variant = "primary", href, tar
 // ── Section eyebrow label ─────────────────────────────────────────────────────
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-[#8A6A2C]">
+    <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-[#B8923F]">
       {children}
     </p>
   );
@@ -173,7 +173,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               href="https://splittyonarc.gitbook.io/splitty-docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8C806D] hover:text-[#EDE3D0] transition-colors"
             >
               <BookOpen size={11} strokeWidth={1.8} />
               Docs
@@ -182,7 +182,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               href="https://github.com/SPLITTY-ORG/SPLITTY"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8C806D] hover:text-[#EDE3D0] transition-colors"
             >
               <GithubIcon />
               GitHub
@@ -191,7 +191,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               href="https://x.com/splittyonarc"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8C806D] hover:text-[#EDE3D0] transition-colors"
             >
               <XLogoIcon />
               X
@@ -253,7 +253,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             href="https://splittyonarc.gitbook.io/splitty-docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8C806D]"
           >
             <BookOpen size={11} strokeWidth={1.8} />
             Docs
@@ -262,7 +262,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             href="https://github.com/SPLITTY-ORG/SPLITTY"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8C806D]"
           >
             <GithubIcon />
             GitHub
@@ -271,7 +271,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             href="https://x.com/splittyonarc"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8C806D]"
           >
             <XLogoIcon />
             X
@@ -287,7 +287,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
           <section className="relative isolate border-b border-[rgba(242,177,52,0.16)] pb-14 sm:pb-20">
             <PinwheelMark />
 
-            <div className="relative z-10 max-w-[640px]">
+            <div className="relative z-10 max-w-[960px]">
               <Eyebrow>USDC BATCH PAYMENTS ON ARC</Eyebrow>
 
               <h1
@@ -317,7 +317,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                 </TagButton>
               </div>
 
-              <p className="mt-4 font-mono text-[11px] text-[#6B5F4F]">
+              <p className="mt-4 font-mono text-[11px] text-[#8C806D]">
                 Connect a wallet or sign in with email — no setup required.
               </p>
             </div>
@@ -343,9 +343,9 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                   key={n}
                   className={[
                     "min-h-[200px] border-b border-[rgba(242,177,52,0.16)] py-7 sm:px-6",
-                    i % 3 !== 2 ? "lg:border-r lg:border-[rgba(242,177,52,0.16)]" : "",
-                    i % 2 === 0 ? "sm:border-r sm:border-[rgba(242,177,52,0.16)] lg:border-r-0" : "",
-                    (i === 0 || i === 3) ? "lg:pl-0" : "",
+                    i % 2 === 0 ? "sm:border-r sm:border-[rgba(242,177,52,0.16)]" : "sm:border-r-0",
+                    i % 3 !== 2 ? "lg:border-r lg:border-[rgba(242,177,52,0.16)]" : "lg:border-r-0",
+                    i % 3 === 0 ? "lg:pl-0" : "",
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em]">
@@ -353,7 +353,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                       <Icon size={13} strokeWidth={1.8} />
                       {label}
                     </span>
-                    <span className="text-[#6B5F4F]">{n}</span>
+                    <span className="text-[#8C806D]">{n}</span>
                   </div>
                   <p className="mt-10 max-w-[38ch] text-sm leading-6 text-[#9C917E]">{copy}</p>
                 </div>
@@ -435,7 +435,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="shrink-0 border-t border-[rgba(242,177,52,0.16)]">
-        <div className="mx-auto grid max-w-[1440px] gap-6 px-4 py-6 text-sm text-[#6B5F4F] sm:grid-cols-3 sm:gap-8 sm:px-8 sm:py-8">
+        <div className="mx-auto grid max-w-[1440px] gap-6 px-4 py-6 text-sm text-[#8C806D] sm:grid-cols-3 sm:gap-8 sm:px-8 sm:py-8">
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#F2B134]">SPLITTY</div>
             <p className="mt-2 text-[13px] leading-6">
@@ -488,7 +488,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                 {networkLabel}
               </a>
             </div>
-            <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-[#3A2F22]">
+            <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8C806D]">
               {network} · SPLITTY.LIVE
             </div>
           </div>
