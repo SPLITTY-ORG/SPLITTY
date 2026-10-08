@@ -1,8 +1,8 @@
 import {
   ArrowRight,
   BookOpen,
-  Github,
-  Twitter,
+  GitBranch,
+  X as XIcon,
   Split,
   Waypoints,
   Wallet,
@@ -174,7 +174,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
-              <Github size={11} strokeWidth={1.8} />
+              <GitBranch size={11} strokeWidth={1.8} />
               GitHub
             </a>
             <a
@@ -183,7 +183,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
-              <Twitter size={11} strokeWidth={1.8} />
+              <XIcon size={11} strokeWidth={1.8} />
               X
             </a>
           </nav>
