@@ -1,3 +1,19 @@
+import {
+  ArrowRight,
+  BookOpen,
+  Github,
+  Twitter,
+  Split,
+  Waypoints,
+  Wallet,
+  FileSpreadsheet,
+  Zap,
+  Fuel,
+  PlugZap,
+  Users,
+  SendHorizonal,
+  CheckCircle,
+} from "lucide-react";
 import SplittyLogo from "./SplittyLogo";
 import { IS_MAINNET } from "../config/gateway.active";
 
@@ -84,32 +100,35 @@ function PinwheelMark() {
 
 // ── Feature grid data ─────────────────────────────────────────────────────────
 const FEATURES = [
-  { n: "01", label: "BATCH TRANSFER", copy: "One transaction, any number of recipients — USDC or any ERC-20." },
-  { n: "02", label: "GATEWAY BRIDGING", copy: "Pull USDC from Base, Ethereum, Avalanche, OP, or Polygon." },
-  { n: "03", label: "UNIFIED BALANCE", copy: "Wallet and Gateway treated as a single pool of funds." },
-  { n: "04", label: "CSV & SAVED LISTS", copy: "Upload a spreadsheet, paste addresses, or reuse a saved list." },
-  { n: "05", label: "SUB-SECOND FINALITY", copy: "Arc settles before you look away. Fees paid in USDC." },
-  { n: "06", label: "NO GAS TOKEN", copy: "USDC is the native gas on Arc — nothing else to hold." },
-] as const;
+  { n: "01", icon: Split,         label: "BATCH TRANSFER",    copy: "One transaction, any number of recipients — USDC or any ERC-20." },
+  { n: "02", icon: Waypoints,     label: "GATEWAY BRIDGING",  copy: "Pull USDC from Base, Ethereum, Avalanche, OP, or Polygon." },
+  { n: "03", icon: Wallet,        label: "UNIFIED BALANCE",   copy: "Wallet and Gateway treated as a single pool of funds." },
+  { n: "04", icon: FileSpreadsheet, label: "CSV & SAVED LISTS", copy: "Upload a spreadsheet, paste addresses, or reuse a saved list." },
+  { n: "05", icon: Zap,           label: "SUB-SECOND FINALITY", copy: "Arc settles before you look away. Fees paid in USDC." },
+  { n: "06", icon: Fuel,          label: "NO GAS TOKEN",      copy: "USDC is the native gas on Arc — nothing else to hold." },
+];
 
 // ── How it works steps ────────────────────────────────────────────────────────
 const STEPS = [
   {
     n: "01",
+    icon: PlugZap,
     title: "CONNECT YOUR WALLET",
     copy: "Sign in with a browser wallet or email. No setup, no seed phrase required.",
   },
   {
     n: "02",
+    icon: Users,
     title: "ADD RECIPIENTS",
     copy: "Paste addresses, upload a CSV, or pick a saved list. Equal or custom amounts.",
   },
   {
     n: "03",
+    icon: SendHorizonal,
     title: "SEND AT ONCE",
     copy: "Review, confirm once. Every recipient receives their share in one on-chain call.",
   },
-] as const;
+];
 
 // ── Main component ────────────────────────────────────────────────────────────
 interface LandingProps {
@@ -144,24 +163,27 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               href="https://splittyonarc.gitbook.io/splitty-docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
+              <BookOpen size={11} strokeWidth={1.8} />
               Docs
             </a>
             <a
               href="https://github.com/SPLITTY-ORG/SPLITTY"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
+              <Github size={11} strokeWidth={1.8} />
               GitHub
             </a>
             <a
               href="https://x.com/splittyonarc"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6B5F4F] hover:text-[#EDE3D0] transition-colors"
             >
+              <Twitter size={11} strokeWidth={1.8} />
               X
             </a>
           </nav>
@@ -173,7 +195,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               {network}
             </span>
             <TagButton variant="ghost" onClick={onLogin} disabled={isLoggingIn}>
-              {isLoggingIn ? "OPENING…" : "LAUNCH APP →"}
+              {isLoggingIn ? "OPENING…" : <><ArrowRight size={13} />LAUNCH APP</>}
             </TagButton>
           </div>
         </div>
@@ -236,7 +258,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
 
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <TagButton onClick={onLogin} disabled={isLoggingIn} variant="primary">
-                  {isLoggingIn ? "OPENING…" : "GET STARTED →"}
+                  {isLoggingIn ? "OPENING…" : <><ArrowRight size={13} />GET STARTED</>}
                 </TagButton>
                 <TagButton
                   href="https://splittyonarc.gitbook.io/splitty-docs"
@@ -244,7 +266,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                   rel="noopener noreferrer"
                   variant="ghost"
                 >
-                  READ DOCS →
+                  <BookOpen size={13} />READ DOCS
                 </TagButton>
               </div>
 
@@ -269,20 +291,21 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map(({ n, label, copy }, i) => (
+              {FEATURES.map(({ n, icon: Icon, label, copy }, i) => (
                 <div
                   key={n}
                   className={[
                     "min-h-[200px] border-b border-[rgba(242,177,52,0.16)] py-7 sm:px-6",
-                    // right border on non-last columns
                     i % 3 !== 2 ? "lg:border-r lg:border-[rgba(242,177,52,0.16)]" : "",
                     i % 2 === 0 ? "sm:border-r sm:border-[rgba(242,177,52,0.16)] lg:border-r-0" : "",
-                    // re-apply for lg grid
                     (i === 0 || i === 3) ? "lg:pl-0" : "",
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em]">
-                    <span className="text-[#F2B134]">{label}</span>
+                    <span className="flex items-center gap-1.5 text-[#F2B134]">
+                      <Icon size={13} strokeWidth={1.8} />
+                      {label}
+                    </span>
                     <span className="text-[#6B5F4F]">{n}</span>
                   </div>
                   <p className="mt-10 max-w-[38ch] text-sm leading-6 text-[#9C917E]">{copy}</p>
@@ -304,7 +327,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             </div>
 
             <ol className="grid border-b border-[rgba(242,177,52,0.16)] md:grid-cols-3">
-              {STEPS.map(({ n, title, copy }, index) => (
+              {STEPS.map(({ n, icon: Icon, title, copy }, index) => (
                 <li
                   key={n}
                   className={[
@@ -313,13 +336,16 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
                     index < 2 ? "md:pr-6" : "",
                   ].join(" ")}
                 >
-                  <span
-                    className="font-sans font-bold text-[#F2B134] leading-none tracking-[-0.04em]"
-                    style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
-                    aria-hidden="true"
-                  >
-                    {n}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="font-sans font-bold text-[#F2B134] leading-none tracking-[-0.04em]"
+                      style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
+                      aria-hidden="true"
+                    >
+                      {n}
+                    </span>
+                    <Icon size={22} strokeWidth={1.5} className="text-[#F2B134] opacity-60" />
+                  </div>
                   <h3 className="mt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-[#EDE3D0]">
                     {title}
                   </h3>
@@ -344,7 +370,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <TagButton onClick={onLogin} disabled={isLoggingIn} variant="primary">
-                  {isLoggingIn ? "OPENING…" : "LAUNCH APP →"}
+                  {isLoggingIn ? "OPENING…" : <><ArrowRight size={13} />LAUNCH APP</>}
                 </TagButton>
                 <TagButton
                   href={networkHref}
