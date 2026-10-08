@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SwipeableToaster } from "./components/SwipeableToaster";
 import { usePrivy, useWallets, useLogin } from "@privy-io/react-auth";
 import { useChainId } from "wagmi";
@@ -29,6 +29,7 @@ function App() {
 
   const { login } = useLogin({
     onComplete: ({ loginMethod, loginAccount }) => {
+      setIsLoggingIn(false);
       if (!loginMethod) return;
 
       const isExternalWallet =
@@ -41,6 +42,7 @@ function App() {
         isExternalWallet ? "external" : "privy"
       );
     },
+    onError: () => setIsLoggingIn(false),
   });
 
   const rabbyWallet = wallets.find(
@@ -80,6 +82,11 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>("split");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [, setStatusMessage] = useState("");
+
+  // Reset isLoggingIn if Privy modal is dismissed without completing login
+  useEffect(() => {
+    if (ready && !authenticated) setIsLoggingIn(false);
+  }, [ready, authenticated]);
 
   const { arcWallet, arcGateway, baseGateway, ethGateway, isLoading } =
     useAllBalances();
