@@ -1797,10 +1797,10 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <button
               type="button"
               onClick={() => { setIsEqualMode(true); setValue("splitMode", "equal"); play("click"); }}
-              className={`select-none px-3 py-2.5 font-mono text-sm transition ${
+              className={`select-none px-3 py-2.5 font-mono text-sm transition border ${
                 isEqualMode
-                  ? "bg-amber text-[#15100B]"
-                  : "text-[#9C917E] hover:text-[#EDE3D0]"
+                  ? "bg-amber text-[#15100B] border-[#F2B134]"
+                  : "text-[#9C917E] border-[rgba(242,177,52,0.22)] hover:text-[#EDE3D0] hover:border-[rgba(242,177,52,0.45)]"
               }`}
             >
               EQUAL
@@ -1808,10 +1808,10 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <button
               type="button"
               onClick={() => { setIsEqualMode(false); setValue("splitMode", "custom"); play("click"); }}
-              className={`select-none px-3 py-2.5 font-mono text-sm transition ${
+              className={`select-none px-3 py-2.5 font-mono text-sm transition border ${
                 !isEqualMode
-                  ? "bg-amber text-[#15100B]"
-                  : "text-[#9C917E] hover:text-[#EDE3D0]"
+                  ? "bg-amber text-[#15100B] border-[#F2B134]"
+                  : "text-[#9C917E] border-[rgba(242,177,52,0.22)] hover:text-[#EDE3D0] hover:border-[rgba(242,177,52,0.45)]"
               }`}
             >
               CUSTOM
@@ -1869,10 +1869,10 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                   }}
                   disabled={isDisabled}
                   title={isDisabled ? `${label} — coming soon for custom tokens` : ""}
-                  className={`relative min-w-0 select-none flex items-center justify-between sm:justify-center gap-2 px-3 py-2.5 font-mono text-[12px] sm:text-sm text-left sm:text-center transition ${
+                  className={`relative min-w-0 select-none flex items-center justify-between sm:justify-center gap-2 px-3 py-2.5 font-mono text-[12px] sm:text-sm text-left sm:text-center transition border ${
                     fundingSource === src
-                      ? "bg-amber text-[#15100B]"
-                      : "text-[#9C917E] hover:text-[#EDE3D0]"
+                      ? "bg-amber text-[#15100B] border-[#F2B134]"
+                      : "text-[#9C917E] border-[rgba(242,177,52,0.22)] hover:text-[#EDE3D0] hover:border-[rgba(242,177,52,0.45)]"
                   } ${isDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
                   <span className="min-w-0 truncate">{label}</span>
