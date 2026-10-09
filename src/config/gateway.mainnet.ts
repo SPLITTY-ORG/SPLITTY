@@ -65,7 +65,7 @@ export const chainConfig = {
   ethereum: {
     chain: mainnet,
     chainId: mainnet.id,
-    usdcAddress: "0xA0b86991c6218b36c1D19D4a2e9Eb0cE3606eB48" as Address,
+    usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address,
     domainId: 0,
     iconKey: "ethereum" as const,
     label: "Ethereum",
@@ -113,7 +113,7 @@ export const chainConfig = {
   polygon: {
     chain: polygon,
     chainId: polygon.id,
-    usdcAddress: "0x3c499c542cef5e3811e1192cE70d8cc03d5c3359" as Address,
+    usdcAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" as Address,
     domainId: 7,
     iconKey: "polygon" as const,
     label: "Polygon PoS",
