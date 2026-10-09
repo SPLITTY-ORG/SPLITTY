@@ -288,14 +288,14 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             <PinwheelMark />
 
             <div className="relative z-10 max-w-[960px]">
-              <Eyebrow>CROSS-CHAIN USDC BATCH PAYMENTS ON ARC</Eyebrow>
+              <Eyebrow>PAY EVERYONE AT ONCE.</Eyebrow>
 
               <h1
                 className="mt-6 font-sans font-bold uppercase text-[#EDE3D0] leading-[0.88] tracking-[-0.05em]"
                 style={{ fontSize: "clamp(3.4rem, 11vw, 8.5rem)" }}
               >
-                Pay everyone<br />
-                <span className="text-[#F2B134]">at once.</span>
+                Cross-chain USDC<br />
+                <span className="text-[#F2B134]">batch payments on Arc.</span>
               </h1>
 
               <p className="mt-7 max-w-[52ch] text-base leading-7 text-[#9C917E] sm:text-lg sm:leading-8 text-pretty">
