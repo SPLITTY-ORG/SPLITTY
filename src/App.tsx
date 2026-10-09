@@ -237,7 +237,7 @@ function App() {
       </div>
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 overflow-x-hidden">
         {activeTab === "split" && (
           <div className="app-grid">
             <div className="space-y-6 min-w-0">

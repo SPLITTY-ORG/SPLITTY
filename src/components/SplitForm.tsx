@@ -284,7 +284,7 @@ function ReviewModal({
             {[
               ["Token", <span className="data-value font-bold text-amber">{tokenSymbol}</span>],
               ["Recipients", <span className="data-value font-bold">{validRecipientsCount}</span>],
-              ["Total", <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>],
+              ["Total", <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(Math.min(activeDecimals, 6))} {tokenSymbol}</span>],
               ["Funding", <span className="data-value">{fundingSource === "unified" ? "GATEWAY BALANCE" : fundingSource === "hybrid" ? "NATIVE/GATEWAY" : fundingSource.toUpperCase()}</span>],
               ...(fundingSource !== "native" ? [
                 ["Native", <span className="data-value">{nativeContribution.toFixed(activeDecimals)} {tokenSymbol}</span>],
@@ -1743,7 +1743,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               }
               play("click");
             }}
-            className="flex-1 select"
+            className="flex-1 select appearance-none"
           >
             <option value={USDC_ADDRESS}>USDC (6 decimals)</option>
             <option value="custom">Custom Token</option>
@@ -1793,11 +1793,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           <label className="field-label flex items-center gap-1 mb-1">
             <Split size={14} className="inline-block" /> How should this be split?
           </label>
-          <div className="flex flex-col sm:flex-row gap-1 bg-[#241B14] p-1 border border-[rgba(242,177,52,0.16)]">
+          <div className="grid grid-cols-2 gap-1 bg-[#241B14] p-1 border border-[rgba(242,177,52,0.16)]">
             <button
               type="button"
               onClick={() => { setIsEqualMode(true); setValue("splitMode", "equal"); play("click"); }}
-              className={`flex-1 px-3 py-1.5 font-mono text-sm transition ${
+              className={`select-none px-3 py-2.5 font-mono text-sm transition ${
                 isEqualMode
                   ? "bg-amber text-[#15100B]"
                   : "text-[#9C917E] hover:text-[#EDE3D0]"
@@ -1808,7 +1808,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
             <button
               type="button"
               onClick={() => { setIsEqualMode(false); setValue("splitMode", "custom"); play("click"); }}
-              className={`flex-1 px-3 py-1.5 font-mono text-sm transition ${
+              className={`select-none px-3 py-2.5 font-mono text-sm transition ${
                 !isEqualMode
                   ? "bg-amber text-[#15100B]"
                   : "text-[#9C917E] hover:text-[#EDE3D0]"
@@ -1850,11 +1850,10 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               Gateway and hybrid funding for custom tokens is a planned integration — only wallet balance is supported right now.
             </p>
           )}
-          <div className="flex gap-1 bg-[#241B14] p-1 border border-[rgba(242,177,52,0.16)]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 bg-[#241B14] p-1 border border-[rgba(242,177,52,0.16)]">
             {["native", "unified", "hybrid"].map((src) => {
               const isDisabled = isCustomToken && src !== "native";
               const isPlanned = src === "unified" || src === "hybrid";
-              // Custom labels for funding sources
               let label = src.toUpperCase();
               if (src === "unified") label = "GATEWAY BALANCE";
               if (src === "hybrid") label = "NATIVE/GATEWAY";
@@ -1869,16 +1868,16 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                     }
                   }}
                   disabled={isDisabled}
-                  className={`relative flex-1 px-3 py-1.5 font-mono text-sm transition ${
+                  title={isDisabled ? `${label} — coming soon for custom tokens` : ""}
+                  className={`relative min-w-0 select-none flex items-center justify-between sm:justify-center gap-2 px-3 py-2.5 font-mono text-[12px] sm:text-sm text-left sm:text-center transition ${
                     fundingSource === src
                       ? "bg-amber text-[#15100B]"
                       : "text-[#9C917E] hover:text-[#EDE3D0]"
                   } ${isDisabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                  title={isDisabled ? `${label} — coming soon for custom tokens` : ""}
                 >
-                  <span className="truncate">{label}</span>
+                  <span className="min-w-0 truncate">{label}</span>
                   {isDisabled && isPlanned && (
-                    <span className="ml-1 inline-flex items-center bg-[rgba(242,177,52,0.15)] border border-[rgba(242,177,52,0.3)] px-1.5 py-0.5 text-[9px] font-mono text-[#F2B134] leading-none">
+                    <span className="shrink-0 border border-[rgba(242,177,52,0.3)] bg-[rgba(242,177,52,0.15)] px-1.5 py-0.5 text-[9px] text-[#F2B134] leading-none">
                       SOON
                     </span>
                   )}
@@ -2082,7 +2081,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           </div>
         )}
 
-        <p className="step-label mt-2 mb-2">05 · IMPORT / PASTE</p>
+        <p className="step-label mt-2 mb-2">04 · IMPORT / PASTE</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="field-label flex items-center gap-1 mb-1">
@@ -2136,7 +2135,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           </div>
         </div>
 
-        <p className="step-label mt-2 mb-2">06 · SAVED LISTS</p>
+        <p className="step-label mt-2 mb-2">05 · SAVED LISTS</p>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <label className="field-label flex items-center gap-1">
             <Folder size={14} /> Load a saved list?
@@ -2187,7 +2186,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         </div>
 
         <div>
-          <p className="step-label mb-1">04 · RECIPIENTS</p>
+          <p className="step-label mb-1">06 · RECIPIENTS</p>
           <div className="flex justify-between items-center mb-2">
             <span className="field-label text-[#F2B134] text-sm flex items-center gap-1">
               <Users size={14} /> Who gets paid? ({validRecipientsCount})
@@ -2272,7 +2271,11 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
               <span className="field-label flex items-center gap-1 text-[#F2B134]">
                 <Receipt size={14} /> Review the total
               </span>
-              <span className="data-value font-bold text-amber">{getTotalToSend().toFixed(activeDecimals)} {tokenSymbol}</span>
+              <span className="data-value font-bold text-amber">
+                {isCustomToken && (tokenSymbol === "???" || !isAddress(customTokenAddress))
+                  ? "—"
+                  : `${getTotalToSend().toFixed(Math.min(activeDecimals, 6))} ${tokenSymbol}`}
+              </span>
             </div>
             <div>
               <span className="field-label block">RECIPIENTS</span>
