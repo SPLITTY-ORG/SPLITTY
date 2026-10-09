@@ -299,7 +299,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
               </h1>
 
               <p className="mt-7 max-w-[52ch] text-base leading-7 text-[#9C917E] sm:text-lg sm:leading-8 text-pretty">
-                Split USDC or any ERC-20 to any number of wallets — one transaction, from any chain.
+                Split USDC or any ERC-20 to dozens of wallets — one transaction, from any supported chain.
                 Powered by Arc and Circle Gateway.
               </p>
 
