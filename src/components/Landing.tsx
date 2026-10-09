@@ -9,6 +9,7 @@ import {
   Fuel,
   PlugZap,
   Users,
+  Layers,
   SendHorizonal,
 } from "lucide-react";
 import SplittyLogo from "./SplittyLogo";
@@ -134,6 +135,12 @@ const STEPS = [
   },
   {
     n: "03",
+    icon: Layers,
+    title: "CHOOSE YOUR FUNDING SOURCE",
+    copy: "Pay from your Arc wallet directly, draw from your Gateway balance, or blend both — Splitty handles the bridging automatically.",
+  },
+  {
+    n: "04",
     icon: SendHorizonal,
     title: "SEND AT ONCE",
     copy: "Review, confirm once. Every recipient receives their share in one on-chain call.",
@@ -288,18 +295,18 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
             <PinwheelMark />
 
             <div className="relative z-10 max-w-[960px]">
-              <Eyebrow>USDC BATCH PAYMENTS ON ARC</Eyebrow>
+              <Eyebrow>PAY EVERYONE AT ONCE.</Eyebrow>
 
               <h1
                 className="mt-6 font-sans font-bold uppercase text-[#EDE3D0] leading-[0.88] tracking-[-0.05em]"
                 style={{ fontSize: "clamp(3.4rem, 11vw, 8.5rem)" }}
               >
-                Pay everyone{" "}
-                <span className="text-[#F2B134]">at once.</span>
+                Cross-chain USDC batch<br />
+                <span className="text-[#F2B134]">payments on Arc.</span>
               </h1>
 
               <p className="mt-7 max-w-[52ch] text-base leading-7 text-[#9C917E] sm:text-lg sm:leading-8 text-pretty">
-                Split USDC or any ERC-20 to any number of wallets — one transaction, from any chain.
+                Split USDC or any ERC-20 to dozens of wallets — one transaction, from any supported chain.
                 Powered by Arc and Circle Gateway.
               </p>
 
@@ -439,7 +446,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#F2B134]">SPLITTY</div>
             <p className="mt-2 text-[13px] leading-6">
-              Batch USDC payments to any number of wallets in one transaction on Arc.
+              Pay everyone at once. Cross-chain USDC batch payments on Arc.
             </p>
           </div>
           <div>
