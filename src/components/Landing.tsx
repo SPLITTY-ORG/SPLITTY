@@ -439,7 +439,7 @@ export function Landing({ onLogin, isLoggingIn }: LandingProps) {
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#F2B134]">SPLITTY</div>
             <p className="mt-2 text-[13px] leading-6">
-              Batch USDC payments to any number of wallets in one transaction on Arc.
+              Pay everyone at once. Cross-chain USDC batch payments on Arc.
             </p>
           </div>
           <div>
