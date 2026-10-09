@@ -358,9 +358,11 @@ type Status = "idle" | "building" | "funding" | "confirming" | "broadcasting" | 
 
 interface SplitFormProps {
   onGoToFundGateway?: () => void;
+  runAgainRecipients?: { address: string; amount: string }[] | null;
+  onRunAgainConsumed?: () => void;
 }
 
-export function SplitForm({ onGoToFundGateway }: SplitFormProps) {
+export function SplitForm({ onGoToFundGateway, runAgainRecipients, onRunAgainConsumed }: SplitFormProps) {
   const [csvError, setCsvError] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
@@ -852,6 +854,15 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
   const totalAmount = watch("totalAmount");
   const splitMode = watch("splitMode");
 
+  // ---------- Run Again: pre-fill from History ----------
+  useEffect(() => {
+    if (!runAgainRecipients || runAgainRecipients.length === 0) return;
+    setValue("recipients", runAgainRecipients.map((r) => ({ address: r.address, amount: r.amount })));
+    setValue("totalAmount", "");
+    setIsEqualMode(false);
+    onRunAgainConsumed?.();
+  }, [runAgainRecipients]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---------- Equal mode distribution effect ----------
   useEffect(() => {
     if (!isEqualMode) return;
@@ -1246,6 +1257,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       setNetworkStatus(`Gateway funding failed: ${message}`);
       setStatus("failed");
       setStatusMessage(`Gateway funding failed: ${message}`);
+      setIsSubmitting(false);
     } finally {
       setIsBridging(false);
       setBridgeProgress("");
@@ -2376,6 +2388,9 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
                    setTxHash(null);
                    setBridgeTxHash(null);
                    setTxError(null);
+                   setPendingData(null);
+                   setIsSubmitting(false);
+                   resetWrite();
                    historySavedRef.current = false;
                  }}
                  className="mt-2 underline text-[#F2B134] hover:text-[#EDE3D0] font-mono"

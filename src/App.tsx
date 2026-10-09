@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { SwipeableToaster } from "./components/SwipeableToaster";
 import { usePrivy, useWallets, useLogin } from "@privy-io/react-auth";
-import { useChainId } from "wagmi";
+import { useChainId, useSwitchChain } from "wagmi";
 import { formatUnits } from "viem";
 import { SplitForm } from "./components/SplitForm";
 import { History } from "./components/History";
@@ -73,10 +73,29 @@ function App() {
   const address = preferredWallet?.address ?? user?.wallet?.address;
 
   const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+
+  // Auto-switch to Arc on first login
+  const ARC_CHAIN_ID = IS_MAINNET ? 5042 : 5042002;
+  useEffect(() => {
+    if (authenticated && chainId && chainId !== ARC_CHAIN_ID) {
+      switchChain({ chainId: ARC_CHAIN_ID });
+    }
+  // Only fire when authenticated flips to true or chainId first resolves
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
+
   const { play, muted, toggleMute } = useSound();
   const [activeTab, setActiveTab] = useState<Tab>("split");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [runAgainRecipients, setRunAgainRecipients] = useState<{ address: string; amount: string }[] | null>(null);
+
+  const handleRunAgain = (recipients: { address: string; amount: string }[]) => {
+    setRunAgainRecipients(recipients);
+    setActiveTab("split");
+    play("tab");
+  };
 
   useEffect(() => {
     if (ready && !authenticated) setIsLoggingIn(false);
@@ -241,7 +260,11 @@ function App() {
         {activeTab === "split" && (
           <div className="app-grid">
             <div className="space-y-6 min-w-0">
-              <SplitForm onGoToFundGateway={() => setActiveTab("gateway")} />
+              <SplitForm
+                onGoToFundGateway={() => setActiveTab("gateway")}
+                runAgainRecipients={runAgainRecipients}
+                onRunAgainConsumed={() => setRunAgainRecipients(null)}
+              />
             </div>
             <div className="space-y-6">
               <GatewayStatus />
@@ -250,7 +273,7 @@ function App() {
           </div>
         )}
         {activeTab === "gateway" && <GatewayDashboard />}
-        {activeTab === "history" && <History />}
+        {activeTab === "history" && <History onRunAgain={handleRunAgain} />}
       </main>
 
       {/* ── Bottom tab bar (mobile only) ─────────────────────────────────────── */}

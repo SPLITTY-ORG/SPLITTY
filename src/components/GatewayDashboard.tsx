@@ -406,7 +406,7 @@ export function GatewayDashboard() {
           sourceChain: depositConfig.label,
           sourceDomain: depositConfig.domainId,
           amount: amt,
-          token: depositConfig.usdcAddress,
+          token: "USDC",
         },
         tx_hash: tx,
       });
@@ -445,17 +445,20 @@ export function GatewayDashboard() {
     }
 
     setIsBridging(true);
+    let bridgeToast: string | undefined;
     try {
       const { transferId } = await bridgeToArc(
         address,
         signTypedDataAsync,
         bridgeSource,
         amt,
-        (msg) => toastLoading(msg)
+        (msg) => { bridgeToast = toastLoading(msg); return bridgeToast; }
       );
-      toastSuccess(`Bridge initiated! Transfer ID: ${transferId}`);
+      if (bridgeToast) toast.dismiss(bridgeToast);
+      toastSuccess("Bridge initiated — waiting for finality.");
       play("click");
 
+      // Record with no on-chain tx hash (Gateway bridge uses a transferId, not a tx hash)
       await supabase.from("transaction_history").insert({
         wallet_address: address,
         event_type: "bridge_to_arc",
@@ -464,25 +467,33 @@ export function GatewayDashboard() {
           sourceDomain: bridgeSourceConfig.domainId,
           amount: amt,
           transferId,
+          status: "PENDING",
         },
-        tx_hash: transferId,
+        tx_hash: "",
       });
 
       invalidateGateway(bridgeSourceConfig.domainId);
 
       const result = await pollTransferStatus(transferId, 180000);
       if (result.status === "finalized" || result.status === "confirmed") {
-        toastSuccess(`Bridge completed!`);
+        toastSuccess("Bridge completed! Balance updated on Arc.");
         invalidateGateway(bridgeSourceConfig.domainId);
         const arcCfg = (chainConfig as any).arc;
         if (arcCfg) {
           invalidateGateway(arcCfg.domainId);
           invalidateWallet(arcCfg.chainId, arcCfg.usdcAddress);
         }
+        // Update history row status to DONE
+        await supabase.from("transaction_history")
+          .update({ data: { sourceChain: bridgeSourceConfig.label, sourceDomain: bridgeSourceConfig.domainId, amount: amt, transferId, status: "DONE" } })
+          .eq("wallet_address", address)
+          .eq("event_type", "bridge_to_arc")
+          .filter("data->>transferId", "eq", transferId);
       } else {
-        toastInfo("Bridge submitted but finality not yet confirmed.");
+        toastInfo("Bridge submitted but finality not yet confirmed. Check History for status.");
       }
     } catch (err: any) {
+      if (bridgeToast) toast.dismiss(bridgeToast);
       toastError(err.message || "Bridge failed");
     } finally {
       setIsBridging(false);
