@@ -153,6 +153,7 @@
            border border-[rgba(242,177,52,0.18)]
            px-4 py-2.5
            font-mono text-sm
+           rounded-none appearance-none
            focus:outline-none focus:border-[rgba(242,177,52,0.60)] focus:ring-1 focus:ring-[#F2B134]/30
            transition-colors;
   }
