@@ -121,12 +121,12 @@ export function GatewayDashboard() {
   const fastSourceConfig = chainConfig[fastDepositRoute.sourceKey];
   const fastDestinationConfig = chainConfig[fastDepositRoute.destinationKey];
 
-  const { data: depositBalanceRaw, refetch: refetchDepositBalance } = useWalletBalance(
+  const { data: depositBalanceRaw, isError: depositBalanceError, refetch: refetchDepositBalance } = useWalletBalance(
     depositConfig.usdcAddress,
     depositConfig.chainId
   );
 
-  const { data: allowanceRaw, refetch: refetchAllowance } = useReadContract({
+  const { data: allowanceRaw, isError: allowanceError, refetch: refetchAllowance } = useReadContract({
     address: depositConfig.usdcAddress,
     abi: erc20Abi,
     functionName: "allowance",
@@ -134,18 +134,24 @@ export function GatewayDashboard() {
     chainId: depositConfig.chainId,
   });
 
-  const { data: fastDepositBalanceRaw } = useWalletBalance(
+  if (depositBalanceError) console.error(`[GatewayDashboard] Balance query failed for ${depositConfig.label}`);
+  if (allowanceError) console.error(`[GatewayDashboard] Allowance query failed for ${depositConfig.label}`);
+
+  const { data: fastDepositBalanceRaw, isError: fastDepositBalanceError } = useWalletBalance(
     fastSourceConfig.usdcAddress,
     fastSourceConfig.chainId
   );
 
-  const { data: fastDepositAllowanceRaw } = useReadContract({
+  const { data: fastDepositAllowanceRaw, isError: fastDepositAllowanceError } = useReadContract({
     address: fastSourceConfig.usdcAddress,
     abi: erc20Abi,
     functionName: "allowance",
     args: address ? [address, GATEWAY_WALLET_ADDRESS] : undefined,
     chainId: fastSourceConfig.chainId,
   });
+
+  if (fastDepositBalanceError) console.error(`[GatewayDashboard] Fast deposit balance query failed for ${fastSourceConfig.label}`);
+  if (fastDepositAllowanceError) console.error(`[GatewayDashboard] Fast deposit allowance query failed for ${fastSourceConfig.label}`);
 
   // Build gateway balance hooks for every displayed chain dynamically.
   // We call one hook per entry in GATEWAY_BALANCE_CHAIN_KEYS (max 5).
@@ -832,22 +838,30 @@ export function GatewayDashboard() {
               <div className="mt-2 text-xs text-[#8C806D] space-y-1 break-words leading-relaxed">
                 <div>
                   Balance:{" "}
-                  <span className="data-value">
-                    {fastDepositBalanceRaw !== undefined
-                      ? parseFloat(formatUnits(fastDepositBalanceRaw, USDC_DECIMALS)).toFixed(6)
-                      : "0.000000"}
-                  </span>{" "}
-                  USDC on {fastSourceConfig.label}
+                  {fastDepositBalanceError ? (
+                    <span className="text-[#8C806D] italic">unavailable</span>
+                  ) : (
+                    <span className="data-value">
+                      {fastDepositBalanceRaw !== undefined
+                        ? parseFloat(formatUnits(fastDepositBalanceRaw, USDC_DECIMALS)).toFixed(6)
+                        : "0.000000"}
+                    </span>
+                  )}{" "}
+                  {!fastDepositBalanceError && <>USDC on {fastSourceConfig.label}</>}
                 </div>
 
                 <div>
                   Allowance:{" "}
-                  <span className="data-value">
-                    {fastDepositAllowanceRaw !== undefined
-                      ? parseFloat(formatUnits(fastDepositAllowanceRaw, USDC_DECIMALS)).toFixed(6)
-                      : "0.000000"}
-                  </span>{" "}
-                  USDC
+                  {fastDepositAllowanceError ? (
+                    <span className="text-[#8C806D] italic">unavailable</span>
+                  ) : (
+                    <span className="data-value">
+                      {fastDepositAllowanceRaw !== undefined
+                        ? parseFloat(formatUnits(fastDepositAllowanceRaw, USDC_DECIMALS)).toFixed(6)
+                        : "0.000000"}
+                    </span>
+                  )}{" "}
+                  {!fastDepositAllowanceError && <>USDC</>}
                 </div>
 
                 <div className="pt-1">
@@ -920,12 +934,24 @@ export function GatewayDashboard() {
                 )}
               </button>
               <div className="text-xs text-[#9C917E] space-y-1 break-words leading-relaxed">
-                {depositBalanceRaw !== undefined && (
-                  <div>Balance: <span className="data-value">{parseFloat(formatUnits(BigInt(depositBalanceRaw ?? "0"), USDC_DECIMALS)).toFixed(6)}</span> USDC on {depositConfig.label}</div>
-                )}
-                {allowanceRaw !== null && allowanceRaw !== undefined && (
-                  <div>Allowance: <span className="data-value">{parseFloat(formatUnits(allowanceRaw, USDC_DECIMALS)).toFixed(6)}</span> USDC</div>
-                )}
+                <div>
+                  Balance:{" "}
+                  {depositBalanceError ? (
+                    <span className="text-[#8C806D] italic">unavailable</span>
+                  ) : depositBalanceRaw !== undefined ? (
+                    <span className="data-value">{parseFloat(formatUnits(BigInt(depositBalanceRaw ?? "0"), USDC_DECIMALS)).toFixed(6)}</span>
+                  ) : null}
+                  {!depositBalanceError && depositBalanceRaw !== undefined && <> USDC on {depositConfig.label}</>}
+                </div>
+                <div>
+                  Allowance:{" "}
+                  {allowanceError ? (
+                    <span className="text-[#8C806D] italic">unavailable</span>
+                  ) : allowanceRaw !== null && allowanceRaw !== undefined ? (
+                    <span className="data-value">{parseFloat(formatUnits(allowanceRaw, USDC_DECIMALS)).toFixed(6)}</span>
+                  ) : null}
+                  {!allowanceError && allowanceRaw !== null && allowanceRaw !== undefined && <> USDC</>}
+                </div>
                 <div className="helper-text">USDC will be deposited into your unified Gateway balance.</div>
               </div>
             </div>
