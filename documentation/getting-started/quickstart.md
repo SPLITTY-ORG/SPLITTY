@@ -5,69 +5,50 @@ icon: bolt
 
 # Quickstart
 
-## Quickstart
-
 Get from connected wallet to completed batch payment in a few minutes.
 
 ## 1. Connect
 
-Open Splitty and connect the wallet you want to use as the sender.
-
-Confirm that the selected network is **Arc Mainnet** for production payments or **Arc Testnet** for testing.
+Open Splitty and connect the wallet you want to use as the sender. When you connect, Splitty automatically switches to Arc. Confirm the network badge in the top bar shows **Arc Mainnet** for production payments or **Arc Testnet** for testing.
 
 ## 2. Choose a token
 
-Select the built-in Arc USDC option or enter a compatible ERC-20 token address.
-
-Splitty reads the token metadata it needs, including decimals, symbol, and name.
+In the **01 · ASSET** step, select the built-in Arc USDC option or enter a compatible ERC-20 token address. Splitty reads the token metadata it needs automatically.
 
 ## 3. Add recipients
 
-Add wallet addresses manually or import a CSV file.
-
-Each recipient must have a valid EVM address. Remove duplicates and check the list before submitting.
+Use **04 · IMPORT / PASTE** to paste addresses directly or import a CSV file. Validation errors appear inline next to any invalid or duplicate address.
 
 ## 4. Choose the split mode
 
-**Equal** divides the total amount across all recipients.
+In **02 · SPLIT MODE**:
 
-**Custom** lets you specify the amount for each recipient.
-
-The total allocation must match the amount you intend to distribute.
+* **Equal** — divides the total amount evenly across all recipients.
+* **Custom** — lets you specify the amount for each recipient individually.
 
 ## 5. Choose a funding source
 
-Select how you want to fund the split. Splitty has three funding sources:
+In **03 · FUNDING**, select how you want to fund the split:
 
-**Native** — use funds available in your connected wallet.
+* **Native** — use USDC (or any ERC-20) held in your connected wallet.
+* **Gateway Balance** — use USDC available in your Circle Gateway balance.
+* **Native/Gateway** — combine your wallet balance and Gateway Balance.
 
-**Gateway Balance** — use USDC available in your Circle Gateway balance.
-
-**Native/Gateway** — use a combination of your connected wallet balance and Gateway Balance.
-
-Gateway Balance and Native/Gateway funding are available for USDC. Custom ERC-20 tokens use Native funding.
+Gateway Balance and Native/Gateway are available for USDC splits. Custom ERC-20 tokens use Native only.
 
 ## 6. Review
 
-Before signing, verify:
-
-* Token
-* Total amount
-* Recipient count
-* Individual allocations
-* Funding source
+Click **Review Split** to open the review modal. Verify the token, total amount, recipient count, and individual allocations. Contract details are hidden by default — expand them if needed.
 
 ## 7. Execute
 
-Submit the transaction from your wallet.
-
-Splitty builds the individual token transfers into a batch and executes them through Multicall3From.
+Click **Confirm & Send**. A four-step progress bar tracks the transaction: BUILDING → FUNDING → CONFIRMING → BROADCASTING.
 
 ## 8. Verify
 
-After the transaction is mined, Splitty reads the receipt and reports recipient-level outcomes where available.
+After the transaction is confirmed, Splitty surfaces recipient-level outcomes. If any recipients fail, a **Retry just these** button lets you re-send to only the failed addresses without rebuilding the full list.
 
-If a recipient fails while other calls succeed, the result can show the successful and failed recipients separately.
+Check the **History** tab to see the completed split, download a CSV receipt, or run the same distribution again.
 
 {% hint style="info" %}
 For production payments, use Arc Mainnet. Start with a small Arc Testnet amount when testing a new distribution flow.
