@@ -9,6 +9,7 @@ import {
   Fuel,
   PlugZap,
   Users,
+  Layers,
   SendHorizonal,
 } from "lucide-react";
 import SplittyLogo from "./SplittyLogo";
@@ -134,6 +135,12 @@ const STEPS = [
   },
   {
     n: "03",
+    icon: Layers,
+    title: "CHOOSE YOUR FUNDING SOURCE",
+    copy: "Pay from your Arc wallet directly, draw from your Gateway balance, or blend both — Splitty handles the bridging automatically.",
+  },
+  {
+    n: "04",
     icon: SendHorizonal,
     title: "SEND AT ONCE",
     copy: "Review, confirm once. Every recipient receives their share in one on-chain call.",
