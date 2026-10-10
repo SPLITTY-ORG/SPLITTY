@@ -23,7 +23,7 @@ import {
   useConfig,
 } from "wagmi";
 
-import toast from "react-hot-toast";
+// import toast from "react-hot-toast"; // unused - using lib/toast
 import { useWallets } from "@privy-io/react-auth";
 
 import {
@@ -80,7 +80,7 @@ import {
 
 import { exceedsTokenPrecision } from "../utils/amountPrecision";
 import { supabase } from "../lib/supabase";
-import { chainConfig, IS_MAINNET, GATEWAY_BALANCE_CHAIN_KEYS, GATEWAY_ENV } from "../config/gateway.active";
+import { chainConfig, IS_MAINNET, GATEWAY_BALANCE_CHAIN_KEYS } from "../config/gateway.active";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { useSound } from "../hooks/useSound";
 import { useChainSwitch } from "../hooks/useChainSwitch";
@@ -651,7 +651,7 @@ export function SplitForm({ onGoToFundGateway, runAgainRecipients, onRunAgainCon
         onConfirm: async () => {
           setConfirmModal(null);
           setIsSavingList(true);
-          await _doSaveList(existing.id, null, currentRecipients, listName);
+          await _doSaveList(existing.id, undefined, currentRecipients, listName);
         },
       });
       return;
@@ -1134,7 +1134,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
 
     try {
       const activeConnection = config.state.connections.get(
-        config.state.current
+        config.state.current ?? ""
       );
 
       const provider = await activeConnection?.connector.getProvider();
@@ -1144,7 +1144,8 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       }
 
       const adapter = await createViemAdapterFromProvider({
-        provider,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        provider: provider as any,
         getPublicClient: ({ chain }) =>
           createPublicClient({
             chain,
@@ -1186,26 +1187,23 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
       );
       setNetworkStatus("Funding Arc wallet...");
 
-      const kit = new UnifiedBalanceKit({
-        environment: GATEWAY_ENV,
-        adapter,
-      });
+      const kit = new UnifiedBalanceKit();
 
       const destinationChain = IS_MAINNET ? "Arc" : "Arc_Testnet";
 
-      const spendParams = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const spendParams: any = {
         from: {
           adapter,
           allocations,
         },
         to: {
-          adapter,
-          chain: destinationChain as any,
-          recipientAddress: address,
+          chain: destinationChain,
+          recipientAddress: address as string,
           useForwarder: true,
         },
-        amount: amountToBridge.toFixed(6),
-        token: "USDC" as const,
+        amountIn: amountToBridge.toFixed(6),
+        token: "USDC",
       };
 
       const estimate = await kit.estimateSpend(spendParams);
@@ -1719,7 +1717,7 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
         {address && (
           <div className="flex flex-wrap items-center gap-4 text-sm border-b border-[rgba(242,177,52,0.16)] pb-3 mb-4">
             <span className="field-label">WALLET</span>
-            <span className="data-value font-mono">{displayAddress.slice(0, 6)}…{displayAddress.slice(-4)}</span>
+            <span className="data-value font-mono">{displayAddress?.slice(0, 6)}…{displayAddress?.slice(-4)}</span>
             <span className="field-label">BALANCE</span>
             <span className="data-value font-mono">
               {isCustomToken && isAddress(customTokenAddress)

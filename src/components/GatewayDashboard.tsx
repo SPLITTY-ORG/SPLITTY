@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAccount, useSwitchChain, useWriteContract, useReadContract, useSignTypedData } from "wagmi";
+import { useAccount, useWriteContract, useReadContract, useSignTypedData } from "wagmi";
 import { formatUnits, erc20Abi, parseUnits, createPublicClient, http } from "viem";
 import toast from "react-hot-toast";
 import { toastSuccess, toastError, toastLoading, toastInfo } from "../lib/toast";
@@ -13,12 +13,12 @@ import {
   GATEWAY_BALANCE_CHAIN_KEYS,
   FAST_DEPOSIT_ROUTES,
   GATEWAY_WALLET_ADDRESS,
-  GATEWAY_ENV,
+
   IS_MAINNET,
 } from "../config/gateway.active";
 import { bridgeToArc, pollTransferStatus } from "../utils/gatewayBridge";
 import { supabase } from "../lib/supabase";
-import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb, RefreshCw, ChevronUp, ChevronDown, ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowDownToLine, Zap, ArrowRightLeft, Lightbulb, RefreshCw, ChevronUp, ChevronDown, ArrowRight } from "lucide-react";
 import { ChainIcon } from "./ChainIcon";
 import { UnifiedBalanceKit } from "@circle-fin/unified-balance-kit";
 import { createViemAdapterFromProvider } from "@circle-fin/adapter-viem-v2";
@@ -41,7 +41,7 @@ const GATEWAY_WALLET_ABI = [
 const TIP_KEY = "splitty-gateway-tip-dismissed";
 
 export function GatewayDashboard() {
-  const { address, chainId, connector } = useAccount();
+  const { address, connector } = useAccount();
   const [tipDismissed, setTipDismissed] = useState(() => {
     try { return !!localStorage.getItem(TIP_KEY); } catch { return false; }
   });
@@ -52,7 +52,7 @@ export function GatewayDashboard() {
     try { localStorage.setItem(TIP_KEY, "1"); } catch {}
   }, []);
 
-  const { switchChainAsync } = useSwitchChain();
+
   const { play } = useSound();
   const { invalidateWallet, invalidateGateway } = useInvalidateBalances();
 
@@ -118,8 +118,8 @@ export function GatewayDashboard() {
     FAST_DEPOSIT_ROUTES.find((route) => route.id === fastDepositRouteId) ??
     FAST_DEPOSIT_ROUTES[0];
 
-  const fastSourceConfig = chainConfig[fastDepositRoute.sourceKey];
-  const fastDestinationConfig = chainConfig[fastDepositRoute.destinationKey];
+  const fastSourceConfig = (chainConfig as any)[fastDepositRoute.sourceKey];
+  const fastDestinationConfig = (chainConfig as any)[fastDepositRoute.destinationKey];
 
   const { data: depositBalanceRaw, isError: depositBalanceError, refetch: refetchDepositBalance } = useWalletBalance(
     depositConfig.usdcAddress,
@@ -223,7 +223,7 @@ export function GatewayDashboard() {
     setIsEstimatingFastDeposit(true);
     try {
       const adapter = await getAdapter();
-      const kit = new UnifiedBalanceKit({ environment: GATEWAY_ENV, adapter });
+      const kit = new UnifiedBalanceKit();
 
       const estimate = await kit.estimateDeposit({
         from: { adapter, chain: fastDepositRoute.sourceChain },
@@ -259,7 +259,7 @@ export function GatewayDashboard() {
 
     try {
       const adapter = await getAdapter();
-      const kit = new UnifiedBalanceKit({ environment: GATEWAY_ENV, adapter });
+      const kit = new UnifiedBalanceKit();
 
       const depositToast = toastLoading(
         `Fast depositing ${fastDepositAmount} USDC from ${fastSourceConfig.label} to ${fastDestinationConfig.label}...`
@@ -272,7 +272,7 @@ export function GatewayDashboard() {
 
       toast.dismiss(depositToast);
 
-      const status = result.progress.status;
+      const status = result.progress?.status;
 
       if (status === "DONE") {
         toastSuccess("Fast deposit complete");
@@ -653,7 +653,7 @@ export function GatewayDashboard() {
                       : "text-[#EDE3D0]"
                   }`}
                 >
-                  <span className="flex items-center gap-1.5"><ChainIcon iconKey={chainConfig[key].iconKey} size="md" />{chainConfig[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
+                  <span className="flex items-center gap-1.5"><ChainIcon iconKey={(chainConfig as any)[key].iconKey} size="md" />{(chainConfig as any)[key].label} <ArrowRight size={12} className="shrink-0" /> Gateway</span>
                   <span className="text-xs text-[#8C806D]">standard</span>
                 </button>
               ))}
@@ -1012,7 +1012,7 @@ export function GatewayDashboard() {
               className="flex-1 select text-sm"
             >
               {BRIDGE_SOURCE_CHAIN_KEYS.map((key) => (
-                <option key={key} value={key}>{chainConfig[key].label}</option>
+                <option key={key} value={key}>{(chainConfig as any)[key].label}</option>
               ))}
             </select>
             <span className="text-[#9C917E] text-sm shrink-0 flex items-center gap-1.5"><ArrowRight size={12} /><ChainIcon iconKey="arc" size="md" /> Arc</span>
