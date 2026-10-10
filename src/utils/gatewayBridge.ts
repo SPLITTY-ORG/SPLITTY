@@ -26,6 +26,7 @@ export async function bridgeToArc(
   const sourceConfig = (chainConfig as any)[sourceChainKey];
   const destConfig = (chainConfig as any).arc as typeof chainConfig[keyof typeof chainConfig];
   if (!destConfig) throw new Error("Arc chain config not found for current environment");
+  if (destConfig.domainId === null) throw new Error("Manual CCTP bridging to Arc is not available on mainnet yet. Use the Split tab — it bridges automatically via Gateway spend.");
 
   const value = parseUnits(amount.toString(), 6);
   const salt = randomBytes32();
