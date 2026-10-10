@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   ArrowDownToLine, ArrowRightLeft, Split, Copy, Check, RotateCw, Zap,
-  ArrowRight, ChevronDown, ChevronUp, Download, Play, Filter,
+  ArrowRight, ChevronDown, ChevronUp, Download, Play,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { supabase } from "../lib/supabase";
@@ -373,7 +373,7 @@ export function History({ onRunAgain }: { onRunAgain?: (recipients: { address: s
 
                   <div className="mt-1.5 flex items-center gap-2">
                     <TxHashLink record={record} />
-                    <CopyButton value={record.tx_hash} />
+                    {record.tx_hash && <CopyButton value={record.tx_hash} />}
                     {hasRecipients && (
                       <button
                         onClick={() => toggleExpanded(record.id)}

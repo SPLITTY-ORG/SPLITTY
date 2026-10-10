@@ -148,15 +148,9 @@ export const BRIDGE_SOURCE_CHAIN_KEYS = GATEWAY_SOURCE_CHAIN_KEYS;
 // Fast deposit routes on mainnet (Ethereum → Arc via Gateway would require
 // Arc mainnet Gateway support; for now these mirror the testnet pattern using
 // the chains that DO have mainnet Gateway support)
+// Gateway Fast Deposit settles to Avalanche or Polygon PoS only (Circle docs).
+// SDK BridgeChain enum values: "Optimism" (not "OP"), "Polygon" (not "Polygon_PoS").
 export const FAST_DEPOSIT_ROUTES = [
-  {
-    id: "ethereum-to-base",
-    sourceKey: "ethereum",
-    sourceChain: "Ethereum",
-    destinationKey: "base",
-    destinationChain: "Base",
-    label: "Ethereum → Base",
-  },
   {
     id: "ethereum-to-avalanche",
     sourceKey: "ethereum",
@@ -166,11 +160,19 @@ export const FAST_DEPOSIT_ROUTES = [
     label: "Ethereum → Avalanche",
   },
   {
+    id: "base-to-avalanche",
+    sourceKey: "base",
+    sourceChain: "Base",
+    destinationKey: "avalanche",
+    destinationChain: "Avalanche",
+    label: "Base → Avalanche",
+  },
+  {
     id: "op-to-polygon",
     sourceKey: "op",
-    sourceChain: "OP",
+    sourceChain: "Optimism",
     destinationKey: "polygon",
-    destinationChain: "Polygon_PoS",
+    destinationChain: "Polygon",
     label: "OP → Polygon PoS",
   },
 ] as const;

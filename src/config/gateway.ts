@@ -185,9 +185,9 @@ export const FAST_DEPOSIT_ROUTES = [
   {
     id: "op-sepolia-to-polygon",
     sourceKey: "opSepolia",
-    sourceChain: "OP_Sepolia",
+    sourceChain: "Optimism_Sepolia",
     destinationKey: "polygonAmoy",
-    destinationChain: "Polygon_PoS_Amoy",
+    destinationChain: "Polygon_Amoy_Testnet",
     label: "OP Sepolia → Polygon PoS Amoy",
   },
 ] as const;
