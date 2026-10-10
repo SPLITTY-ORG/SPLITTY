@@ -974,7 +974,8 @@ export function GatewayDashboard() {
         )}
       </div>
 
-      {/* ── Advanced: Manual Bridge ─────────────────────────────────────────── */}
+      {/* ── Advanced: Manual Bridge — testnet only (Arc mainnet has no Gateway domain yet) */}
+      {!IS_MAINNET && (
       <div className="mt-2">
         <button
           onClick={() => setBridgeOpen((o) => !o)}
@@ -984,8 +985,9 @@ export function GatewayDashboard() {
           Advanced — Manual Bridge to Arc
         </button>
       </div>
+      )}
 
-      {bridgeOpen && (
+      {!IS_MAINNET && bridgeOpen && (
       <div className="bg-[#241B14] border border-[rgba(242,177,52,0.16)] p-3 sm:p-4 min-w-0 overflow-hidden">
         <h4 className="field-label text-sm mb-3 leading-relaxed break-words">INSTANT USDC BRIDGE TO ARC VIA GATEWAY BALANCE</h4>
         <p className="text-xs text-[#9C917E] mb-3 leading-relaxed">
