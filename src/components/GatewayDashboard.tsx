@@ -177,6 +177,8 @@ export function GatewayDashboard() {
   const avalancheGateway = gw3;
   const polygonGateway = gw4;
 
+  const gatewayBalancesLoading = gwHooks.some(h => h?.isLoading);
+
   const sourceGatewayBalance = gatewayBalances.find(
     b => b.domain === bridgeSourceConfig.domainId
   );
@@ -444,6 +446,8 @@ export function GatewayDashboard() {
       return;
     }
 
+    if (gatewayBalancesLoading) { toastError("Gateway balances still loading, please wait."); return; }
+
     setIsBridging(true);
     let bridgeToast: string | undefined;
     try {
@@ -638,7 +642,7 @@ export function GatewayDashboard() {
                   aria-selected={depositMode === "standard" && depositChain === key}
                   onClick={() => {
                     setDepositMode("standard");
-                    setDepositChain(key);
+                    setDepositChain(key as any);
                     setFastDepositEstimate(null);
                     setDepositRouteOpen(false);
                     play("tab");
@@ -668,7 +672,7 @@ export function GatewayDashboard() {
                   aria-selected={depositMode === "fast" && fastDepositRouteId === route.id}
                   onClick={() => {
                     setDepositMode("fast");
-                    setFastDepositRouteId(route.id);
+                    setFastDepositRouteId(route.id as any);
                     setFastDepositEstimate(null);
                     setDepositRouteOpen(false);
                     play("tab");
@@ -731,7 +735,7 @@ export function GatewayDashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      const max = parseFloat(formatUnits(fastDepositBalanceRaw, USDC_DECIMALS)).toFixed(6);
+                      const max = parseFloat(formatUnits(BigInt(fastDepositBalanceRaw), USDC_DECIMALS)).toFixed(6);
                       setFastDepositAmount(max);
                       setFastDepositEstimate(null);
                       play("step");
@@ -854,7 +858,7 @@ export function GatewayDashboard() {
                   ) : (
                     <span className="data-value">
                       {fastDepositBalanceRaw !== undefined
-                        ? parseFloat(formatUnits(fastDepositBalanceRaw, USDC_DECIMALS)).toFixed(6)
+                        ? parseFloat(formatUnits(BigInt(fastDepositBalanceRaw), USDC_DECIMALS)).toFixed(6)
                         : "0.000000"}
                     </span>
                   )}{" "}
@@ -912,7 +916,7 @@ export function GatewayDashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      setDepositAmount(parseFloat(formatUnits(depositBalanceRaw, USDC_DECIMALS)).toFixed(6));
+                      setDepositAmount(parseFloat(formatUnits(BigInt(depositBalanceRaw), USDC_DECIMALS)).toFixed(6));
                       play("step");
                     }}
                     className="text-xs shrink-0 px-3 h-10 border border-[rgba(242,177,52,0.25)] text-[#F2B134] hover:bg-[rgba(242,177,52,0.08)] transition"
@@ -1055,10 +1059,10 @@ export function GatewayDashboard() {
           )}
           <button
             onClick={handleBridge}
-            disabled={bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address}
-            className={`btn-secondary w-full inline-flex items-center justify-center gap-1.5 ${(bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address) ? "opacity-40 cursor-not-allowed" : ""}`}
+            disabled={bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address || gatewayBalancesLoading}
+            className={`btn-secondary w-full inline-flex items-center justify-center gap-1.5 ${(bridgeSwitch.isMismatched || bridgeSwitch.isSwitching || isBridging || !address || gatewayBalancesLoading) ? "opacity-40 cursor-not-allowed" : ""}`}
           >
-            {isBridging ? "Bridging…" : (
+            {gatewayBalancesLoading ? "Loading balances…" : isBridging ? "Bridging…" : (
               <>
                 <ArrowRightLeft size={14} />
                 Bridge

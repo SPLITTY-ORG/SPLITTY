@@ -27,7 +27,7 @@ const log = (token: Address, to: Address, amount: string) => {
     args: { from: SENDER, to },
   });
   const data = encodeAbiParameters([{ type: "uint256" }], [parseUnits(amount, 6)]);
-  return { address: token, data, topics };
+  return { address: token, data, topics } as any;
 };
 
 const paid = (o: { success: boolean }[]) => o.map((x) => x.success);

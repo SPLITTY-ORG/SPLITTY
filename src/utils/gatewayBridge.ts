@@ -8,7 +8,7 @@ function randomBytes32(): Hex {
 }
 
 function stringifyWithBigInts(obj: any): string {
-  return JSON.stringify(obj, (key, value) => {
+  return JSON.stringify(obj, (_key, value) => {
     if (typeof value === 'bigint') {
       return value.toString();
     }
@@ -19,16 +19,15 @@ function stringifyWithBigInts(obj: any): string {
 export async function bridgeToArc(
   address: Address,
   signTypedDataAsync: (typedData: any) => Promise<string>,
-  sourceChainKey: keyof typeof chainConfig,
+  sourceChainKey: string,
   amount: number,
   onProgress?: (msg: string) => void
 ): Promise<{ transferId: string; success: boolean }> {
-  const sourceConfig = chainConfig[sourceChainKey];
+  const sourceConfig = (chainConfig as any)[sourceChainKey];
   const destConfig = (chainConfig as any).arc as typeof chainConfig[keyof typeof chainConfig];
   if (!destConfig) throw new Error("Arc chain config not found for current environment");
 
   const value = parseUnits(amount.toString(), 6);
-  const maxBlockHeight = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
   const salt = randomBytes32();
 
   const spec = {
