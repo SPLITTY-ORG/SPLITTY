@@ -1198,12 +1198,13 @@ const getNativeContributionForHistory = (totalNeededNum: number) => {
           allocations,
         },
         to: {
-          chain: destinationChain,
+          adapter,
+          chain: destinationChain as any,
           recipientAddress: address as string,
           useForwarder: true,
         },
-        amountIn: amountToBridge.toFixed(6),
-        token: "USDC",
+        amount: amountToBridge.toFixed(6),
+        token: "USDC" as const,
       };
 
       const estimate = await kit.estimateSpend(spendParams);
