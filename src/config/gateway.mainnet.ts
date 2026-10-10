@@ -34,7 +34,7 @@ export const chainConfig = {
     // Arc is the destination chain — it is NOT a Gateway source on mainnet.
     // Gateway only lists Arc on testnet (domain 26). On mainnet Arc acts as
     // the execution chain; funds flow in from the chains below via Gateway.
-    domainId: null as null,
+    domainId: 26,
     iconKey: "arc" as const,
     label: "Arc",
     addParams: {
