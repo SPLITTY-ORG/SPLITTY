@@ -31,10 +31,9 @@ export const chainConfig = {
     chain: arc,
     chainId: arc.id,
     usdcAddress: "0x3600000000000000000000000000000000000000" as Address,
-    // Arc is the destination chain — it is NOT a Gateway source on mainnet.
-    // Gateway only lists Arc on testnet (domain 26). On mainnet Arc acts as
-    // the execution chain; funds flow in from the chains below via Gateway.
-    domainId: null as null,
+    // Arc mainnet Gateway domain ID is 26 (same as testnet).
+    // Source: https://developers.circle.com/gateway/references/supported-blockchains
+    domainId: 26,
     iconKey: "arc" as const,
     label: "Arc",
     addParams: {
