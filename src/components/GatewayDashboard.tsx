@@ -286,6 +286,7 @@ export function GatewayDashboard() {
             amount: fastDepositAmount,
             token: "USDC",
             status: "DONE",
+            network: IS_MAINNET ? "mainnet" : "testnet",
           },
           tx_hash: result.txHash,
         });
@@ -305,6 +306,7 @@ export function GatewayDashboard() {
             amount: fastDepositAmount,
             token: "USDC",
             status: "PENDING",
+            network: IS_MAINNET ? "mainnet" : "testnet",
           },
           tx_hash: result.txHash,
         });
@@ -320,6 +322,7 @@ export function GatewayDashboard() {
             amount: fastDepositAmount,
             token: "USDC",
             status: "FAILED",
+            network: IS_MAINNET ? "mainnet" : "testnet",
           },
           tx_hash: result.txHash,
         });
@@ -409,6 +412,7 @@ export function GatewayDashboard() {
           sourceDomain: depositConfig.domainId,
           amount: amt,
           token: "USDC",
+          network: IS_MAINNET ? "mainnet" : "testnet",
         },
         tx_hash: tx,
       });
@@ -472,6 +476,7 @@ export function GatewayDashboard() {
           amount: amt,
           transferId,
           status: "PENDING",
+          network: IS_MAINNET ? "mainnet" : "testnet",
         },
         tx_hash: "",
       });
@@ -489,7 +494,7 @@ export function GatewayDashboard() {
         }
         // Update history row status to DONE
         await supabase.from("transaction_history")
-          .update({ data: { sourceChain: bridgeSourceConfig.label, sourceDomain: bridgeSourceConfig.domainId, amount: amt, transferId, status: "DONE" } })
+          .update({ data: { sourceChain: bridgeSourceConfig.label, sourceDomain: bridgeSourceConfig.domainId, amount: amt, transferId, status: "DONE", network: IS_MAINNET ? "mainnet" : "testnet" } })
           .eq("wallet_address", address)
           .eq("event_type", "bridge_to_arc")
           .filter("data->>transferId", "eq", transferId);
