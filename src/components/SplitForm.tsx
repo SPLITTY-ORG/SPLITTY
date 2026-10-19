@@ -752,6 +752,7 @@ export function SplitForm({ onGoToFundGateway, runAgainRecipients, onRunAgainCon
               wallet_address: address,
               event_type: "batch_split",
               data: {
+                network: IS_MAINNET ? "mainnet" : "testnet",
                 totalAmount: formatUnits(totalAmountWei, activeDecimals),
                 recipients: recipientsWithStatus,
                 token: {
