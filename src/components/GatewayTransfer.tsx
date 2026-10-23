@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useAccount, useSwitchChain, useSignTypedData } from "wagmi";
 import { parseUnits, pad, zeroAddress, type Hex } from "viem";
 import toast from "react-hot-toast";
-import { toastSuccess, toastError } from "../lib/toast";
 import { GATEWAY_WALLET_ADDRESS, GATEWAY_MINTER_ADDRESS, GATEWAY_API_BASE, chainConfig, CHAIN_KEYS, BRIDGE_SOURCE_CHAIN_KEYS } from "../config/gateway.active";
 import { useGatewayBalance } from "../hooks/useGatewayBalance";
 import { ArrowRight } from "lucide-react";
@@ -68,27 +67,29 @@ export function GatewayTransfer() {
 
   const handleTransfer = async () => {
     if (!address) {
-      toastError("Connect wallet first");
+      toast.error("Connect wallet first");
       return;
     }
 
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) {
-      toastError("Enter a valid amount");
+      toast.error("Enter a valid amount");
       return;
     }
 
     const sourceConfig = chainConfig[sourceChainKey];
     const sourceDomain = sourceConfig.domainId;
     const sourceBalance = balances.find(b => b.domain === sourceDomain);
+    console.log("Balances:", balances);
+    console.log("Source balance:", sourceBalance);
 
     if (!sourceBalance) {
-      toastError(`No Gateway balance found for ${sourceConfig.label}`);
+      toast.error(`No Gateway balance found for ${sourceConfig.label}`);
       return;
     }
     const balanceNum = parseFloat(sourceBalance.balance);
     if (balanceNum < amt) {
-      toastError(`Insufficient Gateway balance on ${sourceConfig.label}: ${balanceNum.toFixed(2)} USDC`);
+      toast.error(`Insufficient Gateway balance on ${sourceConfig.label}: ${balanceNum} USDC`);
       return;
     }
 
@@ -98,16 +99,15 @@ export function GatewayTransfer() {
     try {
       // --- Network switching with better UX ---
       if (chainId !== sourceConfig.chainId) {
-        const switchId = "switch-chain";
-        toast.loading(`Switching to ${sourceConfig.label}…`, { id: switchId });
+        const switchToast = toast.loading(`Switching to ${sourceConfig.label}...`);
         try {
           await switchChainAsync({ chainId: sourceConfig.chainId });
-          toast.dismiss(switchId);
-          toastSuccess(`Switched to ${sourceConfig.label}`);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch {
-          toast.dismiss(switchId);
-          toastError(`Switch to ${sourceConfig.label} (Chain ID: ${sourceConfig.chainId}) in your wallet first`);
+          toast.success(`Switched to ${sourceConfig.label}`, { id: switchToast });
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } catch (switchErr: any) {
+          // If the chain is not in the wallet, we can't switch automatically.
+          // We'll show a message asking the user to add it manually.
+          toast.error(`Please switch to ${sourceConfig.label} (Chain ID: ${sourceConfig.chainId}) manually in your wallet.`, { id: switchToast });
           setIsTransferring(false);
           return;
         }
@@ -138,21 +138,21 @@ export function GatewayTransfer() {
         hookData: "0x" as Hex,
       };
 
-      const estimateId = "gateway-estimate";
-      toast.loading("Estimating fee…", { id: estimateId });
       const estimateUrl = `${GATEWAY_API_BASE}/v1/estimate?enableForwarder=true`;
       const estimateBody = stringifyWithBigInts([{ spec }]);
+      console.log("Estimate request:", estimateUrl, estimateBody);
       const estimateRes = await fetch(estimateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: estimateBody,
       });
-      toast.dismiss(estimateId);
       if (!estimateRes.ok) {
         const text = await estimateRes.text();
+        console.error("Estimate failed:", text);
         throw new Error(`Estimate error: ${estimateRes.status} ${text}`);
       }
       const estimateJson = await estimateRes.json();
+      console.log("Estimate response:", estimateJson);
       const estimated = estimateJson.body?.[0]?.burnIntent;
       if (!estimated) throw new Error("Missing estimate");
       const maxFee = BigInt(estimated.maxFee);
@@ -167,16 +167,11 @@ export function GatewayTransfer() {
         message: burnIntent,
       };
 
-      const signId = "gateway-sign";
-      toast.loading("Sign the transfer in your wallet…", { id: signId });
-      let signature: Hex;
-      try {
-        signature = await signTypedDataAsync(typedData);
-      } catch (err) {
-        toast.dismiss(signId);
-        throw err;
-      }
-      toast.dismiss(signId);
+      console.log("Typed data to sign:", typedData);
+      toast.loading("Please sign the burn intent in your wallet...");
+      const signature = await signTypedDataAsync(typedData);
+      console.log("Signature:", signature);
+      toast.dismiss();
 
       const transferUrl = `${GATEWAY_API_BASE}/v1/transfer?enableForwarder=true`;
       const transferBody = stringifyWithBigInts([
@@ -201,11 +196,11 @@ export function GatewayTransfer() {
       const id = json.transferId;
       if (!id) throw new Error("Missing transfer ID");
       setTransferId(id);
-      toastSuccess(`Bridge initiated — ${amt.toFixed(2)} USDC on its way to Arc`);
+      toast.success(`Bridge initiated! Transfer ID: ${id}`);
       await refetchBalances();
     } catch (err: any) {
       console.error("Bridge error:", err);
-      toastError(err.message || "Transfer failed");
+      toast.error(err.message || "Transfer failed");
     } finally {
       setIsTransferring(false);
     }

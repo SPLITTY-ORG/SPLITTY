@@ -19,38 +19,4 @@ export default defineConfig({
     host: true,
     allowedHosts: ['.preview.studio.arc.io'],
   },
-  resolve: {
-    dedupe: [
-      'react',
-      'react-dom',
-      'wagmi',
-      'viem',
-      '@wagmi/core',
-      '@tanstack/react-query',
-    ],
-
-  },
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'react/jsx-runtime',
-      'wagmi',
-      'viem',
-      '@tanstack/react-query',
-      '@wagmi/core',
-      '@wagmi/connectors',
-      '@privy-io/wagmi',
-      'events',
-      'buffer',
-    ],
-    exclude: [
-      '@privy-io/react-auth',
-      '@solana/kit',
-      '@solana/web3.js',
-      '@solana-program/token',
-      '@solana-program/system',
-      '@web3icons/react',
-    ],
-  },
 });

@@ -6,11 +6,11 @@ import {
 import { useAccount } from "wagmi";
 import { supabase } from "../lib/supabase";
 import { relativeTime, truncateHash } from "../lib/formatTime";
-import { chainConfig as testnetChainConfig } from "../config/gateway";
-import { chainConfig as mainnetChainConfig } from "../config/gateway.mainnet";
+import { IS_MAINNET } from "../config/gateway.active";
+import { chainConfig } from "../config/gateway.active";
 
 type EventType = "gateway_deposit" | "gateway_fast_deposit" | "bridge_to_arc" | "batch_split";
-type FilterType = "all" | "split" | "deposit" | "bridge" | "mainnet" | "testnet";
+type FilterType = "all" | "split" | "deposit" | "bridge";
 
 interface TxRecord {
   id: string;
@@ -21,59 +21,25 @@ interface TxRecord {
   created_at: string;
 }
 
-/** Resolve network from data.network (current schema) with fallback for legacy rows. */
-function resolveNetwork(record: TxRecord): "mainnet" | "testnet" {
-  const n = record.data?.network;
-  if (n === "mainnet" || n === "testnet") return n;
-  // Legacy rows: infer from sourceChain label — mainnet labels have no "Sepolia"/"Fuji"/"Amoy"/"Testnet"
-  const src: string = record.data?.sourceChain ?? record.data?.destinationChain ?? "";
-  if (src && !/(sepolia|fuji|amoy|testnet)/i.test(src)) return "mainnet";
-  return "testnet";
-}
-
 // ── Explorer URLs ──────────────────────────────────────────────────────────────
-const ARC_TESTNET_EXPLORER = "https://testnet.arcscan.app";
-const ARC_MAINNET_EXPLORER = "https://explorer.arc.io";
-
-/** Search both chain configs for a matching label, return blockExplorerUrl. */
-function findExplorerByLabel(label: string): string | null {
-  const allConfigs = [
-    ...Object.values(testnetChainConfig),
-    ...Object.values(mainnetChainConfig),
-  ];
-  const match = allConfigs.find((c) => c.label === label);
-  return match?.addParams?.blockExplorerUrls?.[0] ?? null;
-}
+const ARC_EXPLORER = IS_MAINNET ? "https://explorer.arc.io" : "https://testnet.arcscan.app";
 
 function getExplorerUrl(record: TxRecord): string {
   const hash = record.tx_hash;
   if (!hash) return "";
-
-  const isMainnet = resolveNetwork(record) === "mainnet";
-  const arcExplorer = isMainnet ? ARC_MAINNET_EXPLORER : ARC_TESTNET_EXPLORER;
-
-  // Deposits and bridges: use the source-chain explorer when resolvable
-  if (
-    record.event_type === "gateway_deposit" ||
-    record.event_type === "gateway_fast_deposit" ||
-    record.event_type === "bridge_to_arc"
-  ) {
-    const sourceLabel = record.data?.sourceChain;
-    if (sourceLabel) {
-      const explorerBase = findExplorerByLabel(sourceLabel);
-      if (explorerBase) return `${explorerBase}/tx/${hash}`;
+  // For deposits use source chain explorer when we can resolve it
+  if (record.event_type === "gateway_deposit" || record.event_type === "gateway_fast_deposit") {
+    const sourceChainLabel = record.data?.sourceChain;
+    if (sourceChainLabel) {
+      const chainEntry = Object.values(chainConfig).find(
+        (c) => c.label === sourceChainLabel
+      );
+      if (chainEntry?.chain?.blockExplorers?.default?.url) {
+        return `${chainEntry.chain.blockExplorers.default.url}/tx/${hash}`;
+      }
     }
   }
-
-  return `${arcExplorer}/tx/${hash}`;
-}
-
-/** Returns a short label and color for the network badge. */
-function networkBadge(record: TxRecord): { label: string; cls: string } {
-  if (resolveNetwork(record) === "mainnet") {
-    return { label: "MAINNET", cls: "text-[#F2B134] bg-[rgba(242,177,52,0.10)]" };
-  }
-  return { label: "TESTNET", cls: "text-[#8C806D] bg-[rgba(140,128,109,0.10)]" };
+  return `${ARC_EXPLORER}/tx/${hash}`;
 }
 
 // ── Palette — on-theme, no blue/purple ────────────────────────────────────────
@@ -100,19 +66,7 @@ function CopyButton({ value }: { value: string }) {
 
 function TxHashLink({ record }: { record: TxRecord }) {
   const hash = record.tx_hash;
-  const transferId: string | undefined = record.data?.transferId;
-
-  // Bridge rows: no on-chain hash — show transferId as a copyable reference instead
-  if (!hash && transferId) {
-    return (
-      <span className="text-[11px] font-mono text-[#8C806D]" title={transferId}>
-        id: {transferId.slice(0, 8)}…{transferId.slice(-6)}
-      </span>
-    );
-  }
-
-  if (!hash) return <span className="text-[11px] font-mono text-[#8C806D]">pending</span>;
-
+  if (!hash) return <span className="text-[11px] font-mono text-[#8C806D]">no hash</span>;
   const url = getExplorerUrl(record);
   return (
     <a
@@ -245,22 +199,18 @@ function SkeletonRow() {
 
 const PAGE_SIZE = 50;
 
-const FILTER_TABS: { id: FilterType; label: string; group?: "type" | "network" }[] = [
-  { id: "all",      label: "ALL",      group: "type"    },
-  { id: "split",    label: "SPLITS",   group: "type"    },
-  { id: "deposit",  label: "DEPOSITS", group: "type"    },
-  { id: "bridge",   label: "BRIDGES",  group: "type"    },
-  { id: "mainnet",  label: "MAINNET",  group: "network" },
-  { id: "testnet",  label: "TESTNET",  group: "network" },
+const FILTER_TABS: { id: FilterType; label: string }[] = [
+  { id: "all",     label: "ALL"      },
+  { id: "split",   label: "SPLITS"   },
+  { id: "deposit", label: "DEPOSITS" },
+  { id: "bridge",  label: "BRIDGES"  },
 ];
 
 function matchesFilter(record: TxRecord, filter: FilterType): boolean {
-  if (filter === "all")     return true;
+  if (filter === "all") return true;
   if (filter === "split")   return record.event_type === "batch_split";
   if (filter === "deposit") return record.event_type === "gateway_deposit" || record.event_type === "gateway_fast_deposit";
   if (filter === "bridge")  return record.event_type === "bridge_to_arc";
-  if (filter === "mainnet") return resolveNetwork(record) === "mainnet";
-  if (filter === "testnet") return resolveNetwork(record) === "testnet";
   return true;
 }
 
@@ -353,30 +303,22 @@ export function History({ onRunAgain }: { onRunAgain?: (recipients: { address: s
         </button>
       </div>
 
-      {/* Filter chips — type filters + network filters with divider */}
-      <div className="flex gap-1.5 flex-wrap items-center mb-5">
-        {FILTER_TABS.map((f, i) => {
-          const prevGroup = FILTER_TABS[i - 1]?.group;
-          const showDivider = i > 0 && f.group !== prevGroup;
-          return (
-            <React.Fragment key={f.id}>
-              {showDivider && (
-                <span className="w-px h-4 bg-[rgba(242,177,52,0.14)] self-center" />
-              )}
-              <button
-                onClick={() => setFilter(f.id)}
-                className={[
-                  "font-mono text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 border transition-colors",
-                  filter === f.id
-                    ? "border-[rgba(242,177,52,0.40)] text-[#F2B134] bg-[rgba(242,177,52,0.06)]"
-                    : "border-[rgba(242,177,52,0.14)] text-[#8C806D] hover:text-[#EDE3D0] hover:border-[rgba(242,177,52,0.25)]",
-                ].join(" ")}
-              >
-                {f.label}
-              </button>
-            </React.Fragment>
-          );
-        })}
+      {/* Filter chips */}
+      <div className="flex gap-1.5 flex-wrap mb-5">
+        {FILTER_TABS.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={[
+              "font-mono text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 border transition-colors",
+              filter === f.id
+                ? "border-[rgba(242,177,52,0.40)] text-[#F2B134] bg-[rgba(242,177,52,0.06)]"
+                : "border-[rgba(242,177,52,0.14)] text-[#8C806D] hover:text-[#EDE3D0] hover:border-[rgba(242,177,52,0.25)]",
+            ].join(" ")}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Rows */}
@@ -413,22 +355,14 @@ export function History({ onRunAgain }: { onRunAgain?: (recipients: { address: s
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {/* Type badge */}
-                      <span
-                        className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 shrink-0"
-                        style={{ color: meta.accent, backgroundColor: meta.bg }}
-                      >
-                        {meta.label}
-                      </span>
-                      {/* Network badge */}
-                      {(() => { const nb = networkBadge(record); return (
-                        <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 shrink-0 ${nb.cls}`}>
-                          {nb.label}
-                        </span>
-                      ); })()}
-                    </div>
-                    <span className="text-[11px] font-mono text-[#8C806D] shrink-0">
+                    {/* Type badge — square corners */}
+                    <span
+                      className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5"
+                      style={{ color: meta.accent, backgroundColor: meta.bg }}
+                    >
+                      {meta.label}
+                    </span>
+                    <span className="text-[11px] font-mono text-[#8C806D]">
                       {relativeTime(record.created_at)}
                     </span>
                   </div>
@@ -439,12 +373,7 @@ export function History({ onRunAgain }: { onRunAgain?: (recipients: { address: s
 
                   <div className="mt-1.5 flex items-center gap-2">
                     <TxHashLink record={record} />
-                    {record.tx_hash
-                      ? <CopyButton value={record.tx_hash} />
-                      : record.data?.transferId
-                        ? <CopyButton value={record.data.transferId} />
-                        : null
-                    }
+                    {record.tx_hash && <CopyButton value={record.tx_hash} />}
                     {hasRecipients && (
                       <button
                         onClick={() => toggleExpanded(record.id)}
